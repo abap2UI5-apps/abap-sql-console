@@ -3,7 +3,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 
 ##### Features
 * Execute SQL commands
-* Save the command history
+* Save query history
 * Data preview
 
 ##### Compatibility:
