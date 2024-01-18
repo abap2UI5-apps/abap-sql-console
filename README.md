@@ -12,8 +12,8 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * R/3 NetWeaver AS ABAP 7.50 or higher (Standard ABAP)
 
 ##### Required Projects:
-* abap2UI5
 * S-RTTI
+* abap2UI5
 
 ##### TODO
 * Extend the input to SQL translation
