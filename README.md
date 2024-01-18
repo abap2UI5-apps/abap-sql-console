@@ -1,4 +1,4 @@
-# a2UI5-sql_console
+# a2UI5 - SQL Console
 Browser-based SQL Console that eliminates the need to install Eclipse or SAP GUI.
 
 ##### Features
