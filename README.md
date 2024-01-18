@@ -15,6 +15,13 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * abap2UI5
 * S-RTTI
 
+#### TODO
+* extend the input to SQL translation
+* add authorization handling
+
+#### Contribution & Support
+Pull Requests are welcome! Whether you're fixing a bug, adding new functionality, or improving the documentation, your contributions are appreciated. If you encounter any issues, feel free to open an issue.
+
 ### Overview
 
 
