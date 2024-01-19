@@ -31,7 +31,7 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
     val-uuid = z2ui5_sql_cl_util=>get_uuid32( ).
     val-uname = sy-uname.
     MODIFY z2ui5_sql_t_01 FROM @val.
-    COMMIT WORK and wait.
+    COMMIT WORK AND WAIT.
 
   ENDMETHOD.
 

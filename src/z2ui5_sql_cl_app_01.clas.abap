@@ -4,12 +4,6 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
 
     INTERFACES z2ui5_if_app.
 
-*    DATA ms_file TYPE z2ui5_file_cl_db_api=>ty_s_file.
-    DATA mv_type TYPE string.
-    DATA mv_path TYPE string.
-    DATA mv_editor TYPE string.
-    DATA mv_check_editable TYPE abap_bool.
-    DATA check_initialized TYPE abap_bool.
     DATA mt_history TYPE z2ui5_sql_cl_history_api=>ty_t_entry.
 
     DATA:
@@ -23,19 +17,34 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         max_rows      TYPE i,
       END OF ms_draft.
 
-    METHODS view_display
+    METHODS set_view
       IMPORTING
         client TYPE REF TO z2ui5_if_client.
+
     METHODS db_read.
     METHODS db_read_history.
 
   PROTECTED SECTION.
+    DATA client TYPE REF TO z2ui5_if_client.
+    DATA check_initialized TYPE abap_bool.
+    METHODS on_run.
+    METHODS on_init.
+    METHODS view_sql_editor
+      IMPORTING
+        view_sql TYPE REF TO z2ui5_cl_xml_view.
+    METHODS view_preview
+      IMPORTING
+        view_output TYPE REF TO z2ui5_cl_xml_view.
+    METHODS view_history
+      IMPORTING
+        view_history TYPE REF TO z2ui5_cl_xml_view.
+
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
+CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
 
   METHOD db_read.
@@ -57,7 +66,54 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD view_display.
+  METHOD on_init.
+
+    ms_draft-input = `Select from T100 fields * .`.
+    ms_draft-size_history = `30%`.
+    ms_draft-size_sql = `auto`.
+    ms_draft-size_preview = `auto`.
+    ms_draft-max_rows = 10000.
+    set_view( client ).
+
+    db_read_history( ).
+
+  ENDMETHOD.
+
+
+  METHOD on_run.
+
+    TRY.
+
+        DATA(ls_sql_command) = z2ui5_sql_cl_util=>get_sql_by_string( ms_draft-input ).
+
+        IF ms_draft-s_sql_command-table <> ls_sql_command-table.
+          CREATE DATA ms_draft-t_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
+          set_view( client ).
+        ELSE.
+          client->view_model_update( ).
+        ENDIF.
+
+        ms_draft-s_sql_command = ls_sql_command.
+        db_read( ).
+
+        FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
+        ASSIGN ms_draft-t_tab->* TO <tab>.
+        z2ui5_sql_cl_history_api=>db_create( VALUE #(
+            sql_command = ms_draft-input
+            tabname     = ms_draft-s_sql_command-table
+            counter     = lines( <tab> )
+            result_data = /ui2/cl_json=>serialize( <tab> ) ) ).
+
+        db_read_history( ).
+
+      CATCH cx_root INTO DATA(x).
+        client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD set_view.
 
     DATA(view) = z2ui5_cl_xml_view=>factory( client ).
     DATA(page) = view->shell( )->page(
@@ -80,12 +136,36 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
            )->splitter_layout_data( size = client->_bind_edit( ms_draft-size_sql )
            )->get_parent( )->get_parent( ).
 
+    view_sql_editor( view_sql ).
+
     DATA(view_history) = cont_sub->split_pane( requiredparentwidth = `400`
          )->layout_data( ns = `layout`
            )->splitter_layout_data(  size = client->_bind_edit( ms_draft-size_history )
            )->get_parent( )->get_parent( ).
-*         )->panel( headertext = `second pane`  ).
 
+    view_history( view_history ).
+
+    DATA(view_preview) = cont_main->split_pane( requiredparentwidth = `400` id = `default`
+         )->layout_data( ns = `layout`
+           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-size_preview )
+            )->get_parent( )->get_parent( ).
+
+    view_preview( view_preview ).
+
+    page->footer( )->overflow_toolbar(
+        )->toolbar_spacer(
+        )->button(
+            text  = 'Run'
+            press = client->_event( 'RUN' )
+            type  = 'Emphasized'
+            icon = 'sap-icon://upload-to-cloud' ).
+
+    client->view_display( view->stringify( ) ).
+
+  ENDMETHOD.
+
+
+  METHOD view_history.
 
     view_history->list(
           headertext      = 'History'
@@ -101,14 +181,10 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 *              selected    = `{SELECTED}`
          ).
 
-    DATA(view_output) = cont_main->split_pane( requiredparentwidth = `400` id = `default`
-         )->layout_data( ns = `layout`
-           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-size_preview )
-            )->get_parent( )->get_parent( ).
+  ENDMETHOD.
 
-    view_sql->code_editor(
-                type  = `sql`
-                value = client->_bind_edit( ms_draft-input ) ).
+
+  METHOD view_preview.
 
     IF ms_draft-t_tab IS BOUND.
       FIELD-SYMBOLS <tab> TYPE table.
@@ -142,33 +218,25 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
       view_output->panel( headertext = `data preview...`  ).
     ENDIF.
 
-    page->footer( )->overflow_toolbar(
-        )->toolbar_spacer(
-        )->button(
-            text  = 'Run'
-            press = client->_event( 'RUN' )
-            type  = 'Emphasized'
-            icon = 'sap-icon://upload-to-cloud' ).
+  ENDMETHOD.
 
-    client->view_display( view->stringify( ) ).
+
+  METHOD view_sql_editor.
+
+    view_sql->code_editor(
+                type  = `sql`
+                value = client->_bind_edit( ms_draft-input ) ).
 
   ENDMETHOD.
 
 
   METHOD z2ui5_if_app~main.
 
+    me->client = client.
+
     IF check_initialized = abap_false.
       check_initialized = abap_true.
-
-      ms_draft-input = `Select from T100 fields * .`.
-      ms_draft-size_history = `30%`.
-      ms_draft-size_sql = `auto`.
-      ms_draft-size_preview = `auto`.
-      ms_draft-max_rows = 10000.
-      view_display( client ).
-
-      db_read_history( ).
-
+      on_init( ).
       RETURN.
 
     ENDIF.
@@ -176,33 +244,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     CASE client->get( )-event.
 
       WHEN 'RUN'.
-        TRY.
-
-            DATA(ls_sql_command) = z2ui5_sql_cl_util=>get_sql_by_string( ms_draft-input ).
-
-            IF ms_draft-s_sql_command-table <> ls_sql_command-table.
-              CREATE DATA ms_draft-t_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
-              view_display( client ).
-            ELSE.
-              client->view_model_update( ).
-            ENDIF.
-
-            ms_draft-s_sql_command = ls_sql_command.
-            db_read( ).
-
-            FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
-            ASSIGN ms_draft-t_tab->* TO <tab>.
-            z2ui5_sql_cl_history_api=>db_create( VALUE #(
-                sql_command = ms_draft-input
-                tabname     = ms_draft-s_sql_command-table
-                counter     = lines( <tab> )
-                result_data = /ui2/cl_json=>serialize( <tab> ) ) ).
-
-            db_read_history( ).
-
-          CATCH cx_root INTO DATA(x).
-            client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
-        ENDTRY.
+        on_run( ).
 
       WHEN 'BACK'.
         client->nav_app_leave( client->get_app( client->get( )-s_draft-id_prev_app_stack ) ).
