@@ -23,6 +23,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 Pull Requests are welcome! Whether you're fixing a bug, adding new functionality, or improving the documentation, your contributions are always appreciated. If you run into problems, feel free to open an issue.
 
 # Demo
-<img width="1313" alt="image" src="https://github.com/oblomov-dev/a2UI5-sql_console/assets/102328295/c05be612-59a8-4dab-85e4-279a872f9ed6">
+<img width="1226" alt="image" src="https://github.com/oblomov-dev/a2UI5-sql_console/assets/102328295/b84afd37-1b47-4bdc-a1d8-231561518061">
+
 
 
