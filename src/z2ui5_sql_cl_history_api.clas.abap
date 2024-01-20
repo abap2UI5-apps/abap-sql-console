@@ -18,6 +18,10 @@ CLASS z2ui5_sql_cl_history_api DEFINITION
       RETURNING
         VALUE(result) TYPE ty_t_entry.
 
+    CLASS-METHODS db_delete
+      IMPORTING
+        user type clike DEFAULT sy-uname.
+
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
@@ -41,6 +45,13 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
         FIELDS *
     WHERE uname = @val
     INTO CORRESPONDING FIELDS OF TABLE @result.
+
+  ENDMETHOD.
+
+  METHOD db_delete.
+
+    delete from z2ui5_sql_t_01 where uname = user.
+    commit work and wait.
 
   ENDMETHOD.
 

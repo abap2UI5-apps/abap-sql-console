@@ -4,174 +4,105 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
 
     INTERFACES z2ui5_if_app.
 
-    DATA mt_history TYPE z2ui5_sql_cl_history_api=>ty_t_entry.
-
     DATA:
       BEGIN OF ms_draft,
-        input         TYPE string,
-        t_tab         TYPE REF TO data,
-        s_sql_command TYPE z2ui5_sql_cl_util=>ty_s_sql_result,
-        size_sql      TYPE string,
-        size_history  TYPE string,
-        size_preview  TYPE string,
-        max_rows      TYPE i,
+        preview_tab          TYPE REF TO data,
+        preview_tab_backup   TYPE REF TO data,
+        preview_cont_size    TYPE string,
+        preview_title        TYPE string,
+        preview_search_field TYPE string,
+        sql_input            TYPE string,
+        sql_s_command        TYPE z2ui5_sql_cl_util=>ty_s_sql_result,
+        sql_max_rows         TYPE i,
+        sql_cont_size        TYPE string,
+        history_cont_size    TYPE string,
+        history_tab          TYPE z2ui5_sql_cl_history_api=>ty_t_entry,
+        appwidthlimited      TYPE abap_bool,
       END OF ms_draft.
 
-    METHODS set_view
-      IMPORTING
-        client TYPE REF TO z2ui5_if_client.
-
-    METHODS db_read.
-    METHODS db_read_history.
-
   PROTECTED SECTION.
+
     DATA client TYPE REF TO z2ui5_if_client.
     DATA check_initialized TYPE abap_bool.
-    METHODS on_run.
-    METHODS on_init.
-    METHODS view_sql_editor
+
+    METHODS z2ui5_view_display.
+    METHODS sql_db_read.
+    METHODS history_db_read.
+    METHODS preview_on_filter_search.
+    METHODS history_on_clear_pressed.
+    METHODS z2ui5_on_navigated.
+    METHODS z2ui5_on_event.
+    METHODS sql_on_run.
+    METHODS z2ui5_on_init.
+
+    METHODS sql_view_display
       IMPORTING
         view_sql TYPE REF TO z2ui5_cl_xml_view.
-    METHODS view_preview
+    METHODS preview_view
       IMPORTING
         view_output TYPE REF TO z2ui5_cl_xml_view.
-    METHODS view_history
+    METHODS history_view
       IMPORTING
         view_history TYPE REF TO z2ui5_cl_xml_view.
+    METHODS preview_on_filter_clear.
 
   PRIVATE SECTION.
 ENDCLASS.
 
 
+CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
-CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
-
-
-  METHOD db_read.
+  METHOD sql_db_read.
 
     FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
-    ASSIGN ms_draft-t_tab->* TO <tab>.
+    ASSIGN ms_draft-preview_tab->* TO <tab>.
 
-    SELECT FROM (ms_draft-s_sql_command-table) FIELDS *
+    SELECT FROM (ms_draft-sql_s_command-table) FIELDS *
         INTO CORRESPONDING FIELDS OF TABLE @<tab>
-        UP TO @ms_draft-max_rows ROWS.
+        UP TO @ms_draft-sql_max_rows ROWS.
+
+    FIELD-SYMBOLS <tab2> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab_backup->* TO <tab2>.
+
+    <tab2> = <tab>.
+
+    ms_draft-preview_title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util_func=>c_trim( lines( <tab2> ) ) && `)`.
 
   ENDMETHOD.
 
 
-  METHOD db_read_history.
+  METHOD history_db_read.
 
-    mt_history = CORRESPONDING #( z2ui5_sql_cl_history_api=>db_read_by_user( ) EXCEPT result_data ).
-
-  ENDMETHOD.
-
-
-  METHOD on_init.
-
-    ms_draft-input = `Select from T100 fields * .`.
-    ms_draft-size_history = `30%`.
-    ms_draft-size_sql = `auto`.
-    ms_draft-size_preview = `auto`.
-    ms_draft-max_rows = 10000.
-    set_view( client ).
-
-    db_read_history( ).
+    ms_draft-history_tab = CORRESPONDING #( z2ui5_sql_cl_history_api=>db_read_by_user( ) EXCEPT result_data ).
 
   ENDMETHOD.
 
 
-  METHOD on_run.
+  METHOD history_on_clear_pressed.
 
-    TRY.
-
-        DATA(ls_sql_command) = z2ui5_sql_cl_util=>get_sql_by_string( ms_draft-input ).
-
-        IF ms_draft-s_sql_command-table <> ls_sql_command-table.
-          CREATE DATA ms_draft-t_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
-          set_view( client ).
-        ELSE.
-          client->view_model_update( ).
-        ENDIF.
-
-        ms_draft-s_sql_command = ls_sql_command.
-        db_read( ).
-
-        FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
-        ASSIGN ms_draft-t_tab->* TO <tab>.
-        z2ui5_sql_cl_history_api=>db_create( VALUE #(
-            sql_command = ms_draft-input
-            tabname     = ms_draft-s_sql_command-table
-            counter     = lines( <tab> )
-            result_data = /ui2/cl_json=>serialize( <tab> ) ) ).
-
-        db_read_history( ).
-
-      CATCH cx_root INTO DATA(x).
-        client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
-    ENDTRY.
+    IF ms_draft-history_tab IS INITIAL.
+      client->message_box_display( `No history entries found. No action needed.` ).
+      RETURN.
+    ENDIF.
+    client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( `Delete all history entries from database?` ) ).
 
   ENDMETHOD.
 
 
-  METHOD set_view.
-
-    DATA(view) = z2ui5_cl_xml_view=>factory( client ).
-    DATA(page) = view->shell( )->page(
-    title = 'abap2UI5 - SQL Console'
-    navbuttonpress = client->_event( 'BACK' )
-    shownavbutton = abap_true
-            )->header_content(
-                )->link( text = 'Project on GitHub'        target = '_blank' href = 'https://github.com/oblomov-dev/a2UI5-sql_console'
-    )->get_parent( ).
-
-    DATA(grid) = page->grid( 'L7 M12 S12' )->content( 'layout' ).
-
-    DATA(cont_main) = page->responsive_splitter( defaultpane = `default`
-         )->pane_container( orientation = `Vertical` ).
-
-    DATA(cont_sub) = cont_main->pane_container( orientation = `Horizontal` ).
-
-    DATA(view_sql) = cont_sub->split_pane( requiredparentwidth = `600`
-         )->layout_data( ns = `layout`
-           )->splitter_layout_data( size = client->_bind_edit( ms_draft-size_sql )
-           )->get_parent( )->get_parent( ).
-
-    view_sql_editor( view_sql ).
-
-    DATA(view_history) = cont_sub->split_pane( requiredparentwidth = `400`
-         )->layout_data( ns = `layout`
-           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-size_history )
-           )->get_parent( )->get_parent( ).
-
-    view_history( view_history ).
-
-    DATA(view_preview) = cont_main->split_pane( requiredparentwidth = `400` id = `default`
-         )->layout_data( ns = `layout`
-           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-size_preview )
-            )->get_parent( )->get_parent( ).
-
-    view_preview( view_preview ).
-
-    page->footer( )->overflow_toolbar(
-        )->toolbar_spacer(
-        )->button(
-            text  = 'Run'
-            press = client->_event( 'RUN' )
-            type  = 'Emphasized'
-            icon = 'sap-icon://upload-to-cloud' ).
-
-    client->view_display( view->stringify( ) ).
-
-  ENDMETHOD.
-
-
-  METHOD view_history.
+  METHOD history_view.
 
     view_history->list(
-          headertext      = 'History'
-          items           = client->_bind_edit( mt_history )
+          items           = client->_bind_edit( ms_draft-history_tab )
           mode            = `SingleSelectMaster`
           selectionchange = client->_event( 'SELCHANGE' )
+           sticky              = 'ColumnHeaders,HeaderToolbar'
+             )->header_toolbar(
+             )->overflow_toolbar(
+                 )->title( 'History'
+                 )->toolbar_spacer(
+                )->toolbar_spacer(
+                 )->button( text = `Clear` press = client->_event( `HISTORY_CLEAR` ) icon = `sap-icon://delete`
+        )->get_parent( )->get_parent(
           )->standard_list_item(
               title       = '{TABNAME}'
               description = '{SQL_COMMAND}'
@@ -184,22 +115,53 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD view_preview.
+  METHOD preview_on_filter_search.
 
-    IF ms_draft-t_tab IS BOUND.
+    FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab->* TO <tab>.
+
+    FIELD-SYMBOLS <tab2> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab_backup->* TO <tab2>.
+
+    <tab> = <tab2>.
+
+    IF ms_draft-preview_search_field IS NOT INITIAL.
+
+      z2ui5_cl_util_func=>get_tab_filter_by_val(
+        EXPORTING
+          val = ms_draft-preview_search_field
+        CHANGING
+          tab = <tab> ).
+
+    ENDIF.
+
+    ms_draft-preview_title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util_func=>c_trim( lines( <tab> ) ) && `)`.
+    client->view_model_update( ).
+    client->message_toast_display( `Search field filter updated` ).
+
+  ENDMETHOD.
+
+
+  METHOD preview_view.
+
+    IF ms_draft-preview_tab IS BOUND.
       FIELD-SYMBOLS <tab> TYPE table.
-      ASSIGN  ms_draft-t_tab->* TO <tab>.
+      ASSIGN  ms_draft-preview_tab->* TO <tab>.
 
       DATA(tab) = view_output->table(
               items = client->_bind( <tab> )
               growing = abap_true
               growingscrolltoload = abap_true
               growingthreshold = `100`
+              sticky              = 'ColumnHeaders,HeaderToolbar'
          )->header_toolbar(
              )->overflow_toolbar(
-                 )->title( `(1) Data Preview`
+                 )->title( client->_bind( ms_draft-preview_title )
                  )->toolbar_spacer(
-                 )->button( text = `Reset` press = client->_event( `LOAD` ) icon = `sap-icon://refresh` type = `Emphasized`
+                )->input( width = `30%` value = client->_bind_edit( ms_draft-preview_search_field ) description = `All Column Search`  submit = client->_event( `PREVIEW_SEARCH` )
+                 )->toolbar_spacer(
+                 )->button( text = `Filter` press = client->_event( `PREVIEW_FILTER` ) icon = `sap-icon://filter`
+                 )->button( text = `Clear Filter` press = client->_event( `PREVIEW_CLEAR_FILTER` ) icon = `sap-icon://delete`
         )->get_parent( )->get_parent( ).
 
       DATA(lt_fields) = z2ui5_xlsx_cl_utility=>get_fieldlist_by_table( <tab> ).
@@ -221,11 +183,47 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD view_sql_editor.
+  METHOD sql_on_run.
 
-    view_sql->code_editor(
+    TRY.
+
+        DATA(ls_sql_command) = z2ui5_sql_cl_util=>get_sql_by_string( ms_draft-sql_input ).
+
+        IF ms_draft-sql_s_command-table <> ls_sql_command-table.
+          CREATE DATA ms_draft-preview_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
+          CREATE DATA ms_draft-preview_tab_backup TYPE STANDARD TABLE OF (ls_sql_command-table).
+          z2ui5_view_display( ).
+        ELSE.
+          client->view_model_update( ).
+        ENDIF.
+
+        ms_draft-sql_s_command = ls_sql_command.
+        sql_db_read( ).
+
+        FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
+        ASSIGN ms_draft-preview_tab->* TO <tab>.
+        z2ui5_sql_cl_history_api=>db_create( VALUE #(
+            sql_command = ms_draft-sql_input
+            tabname     = ms_draft-sql_s_command-table
+            counter     = lines( <tab> )
+            result_data = /ui2/cl_json=>serialize( <tab> ) ) ).
+
+        history_db_read( ).
+
+      CATCH cx_root INTO DATA(x).
+        client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD sql_view_display.
+
+    view_sql->button( text = `Filter` press = client->_event( `PREVIEW_FILTER` ) icon = `sap-icon://filter`
+*                 )->button( text = `Clear` press = client->_event( `PREVIEW_CLEAR` ) icon = `sap-icon://delete`
+         )->code_editor(
                 type  = `sql`
-                value = client->_bind_edit( ms_draft-input ) ).
+                value = client->_bind_edit( ms_draft-sql_input ) ).
 
   ENDMETHOD.
 
@@ -236,20 +234,144 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     IF check_initialized = abap_false.
       check_initialized = abap_true.
-      on_init( ).
+      z2ui5_on_init( ).
       RETURN.
-
     ENDIF.
+
+    IF client->get( )-check_on_navigated = abap_true.
+      z2ui5_on_navigated( ).
+      RETURN.
+    ENDIF.
+
+    z2ui5_on_event(  ).
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_on_init.
+
+    ms_draft-sql_input = `Select from T100 fields * .`.
+    ms_draft-history_cont_size = `30%`.
+    ms_draft-sql_cont_size = `auto`.
+    ms_draft-preview_cont_size = `auto`.
+    ms_draft-sql_max_rows = 10000.
+    ms_draft-appwidthlimited = abap_true.
+    z2ui5_view_display( ).
+
+    history_db_read( ).
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_on_navigated.
+
+    TRY.
+        DATA(lo_popup_confirm) = CAST z2ui5_cl_popup_to_confirm( client->get_app( client->get( )-s_draft-id_prev_app ) ).
+        IF lo_popup_confirm->result( ).
+          CLEAR ms_draft-history_tab.
+          client->view_model_update( ).
+          z2ui5_sql_cl_history_api=>db_delete( ).
+          client->message_toast_display( `All entries succesfully deleted from database` ).
+        ENDIF.
+      CATCH cx_root.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_view_display.
+
+    DATA(view) = z2ui5_cl_xml_view=>factory( client ).
+    DATA(page) = view->shell( appwidthlimited = client->_bind_edit( ms_draft-appwidthlimited ) )->page(
+    title = 'abap2UI5 - SQL Console'
+    navbuttonpress = client->_event( 'BACK' )
+    shownavbutton = abap_true
+            )->header_content(
+                )->overflow_toolbar(
+                )->label( `max Rows`
+                )->input( width = `15%` value = client->_bind_edit( ms_draft-sql_max_rows )
+                  )->button(
+            text  = 'Run'
+            press = client->_event( 'RUN' )
+            type  = 'Emphasized'
+                )->toolbar_spacer(
+                )->label( `Shell`
+                )->switch( state = client->_bind_edit( ms_draft-appwidthlimited )
+                )->link( text = 'Project on GitHub' target = '_blank' href = 'https://github.com/oblomov-dev/a2UI5-sql_console'
+    )->get_parent( )->get_parent( ).
+
+    DATA(grid) = page->grid( 'L7 M12 S12' )->content( 'layout' ).
+
+    DATA(cont_main) = page->responsive_splitter( defaultpane = `default`
+         )->pane_container( orientation = `Vertical` ).
+
+    DATA(cont_sub) = cont_main->pane_container( orientation = `Horizontal` ).
+
+    DATA(view_sql) = cont_sub->split_pane( requiredparentwidth = `600`
+         )->layout_data( ns = `layout`
+           )->splitter_layout_data( size = client->_bind_edit( ms_draft-sql_cont_size )
+           )->get_parent( )->get_parent( ).
+
+    sql_view_display( view_sql ).
+
+    DATA(view_history) = cont_sub->split_pane( requiredparentwidth = `400`
+         )->layout_data( ns = `layout`
+           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-history_cont_size )
+           )->get_parent( )->get_parent( ).
+
+    history_view( view_history ).
+
+    DATA(view_preview) = cont_main->split_pane( requiredparentwidth = `400` id = `default`
+         )->layout_data( ns = `layout`
+           )->splitter_layout_data(  size = client->_bind_edit( ms_draft-preview_cont_size )
+            )->get_parent( )->get_parent( ).
+
+    preview_view( view_preview ).
+
+    client->view_display( view->stringify( ) ).
+
+  ENDMETHOD.
+
+  METHOD z2ui5_on_event.
 
     CASE client->get( )-event.
 
+      WHEN 'PREVIEW_CLEAR_FILTER'.
+        preview_on_filter_clear( ).
+
+      WHEN 'PREVIEW_SEARCH'.
+        preview_on_filter_search( ).
+
       WHEN 'RUN'.
-        on_run( ).
+        sql_on_run( ).
+
+      WHEN 'HISTORY_CLEAR'.
+        history_on_clear_pressed( ).
 
       WHEN 'BACK'.
         client->nav_app_leave( client->get_app( client->get( )-s_draft-id_prev_app_stack ) ).
-        RETURN.
+
     ENDCASE.
 
   ENDMETHOD.
+
+
+  METHOD preview_on_filter_clear.
+
+    CLEAR ms_draft-preview_search_field.
+
+    FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab->* TO <tab>.
+
+    FIELD-SYMBOLS <tab2> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab_backup->* TO <tab2>.
+    <tab> = <tab2>.
+
+    ms_draft-preview_title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util_func=>c_trim( lines( <tab> ) ) && `)`.
+
+    client->view_model_update( ).
+    client->message_toast_display( 'all filter deleted' ).
+
+  ENDMETHOD.
+
 ENDCLASS.
