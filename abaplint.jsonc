@@ -89,7 +89,12 @@
     "unused_variables": false,
     "abapdoc": false,
     "allowed_object_naming": true,
-    "allowed_object_types": false,
+    "allowed_object_types": {
+      "allowed": [
+        "CLAS",
+        "INTF",
+      ]
+    },
     "ambiguous_statement": false,
     "avoid_use": {
       "define": true,
@@ -141,12 +146,30 @@
     },
     "newline_between_methods": false,
     "no_public_attributes": false,
-    "object_naming": {
-      "clas": "^ZC(L|X)\\_EXCEL",
-      "intf": "^ZIF\\_EXCEL",
-      "tabl": "^ZEXCEL",
-      "ttyp": "^ZEXCEL",
-      "dtel": "^ZEXCEL"
+      "object_naming": {
+      "exclude": [],
+      "severity": "Error",
+      "patternKind": "required",
+      "ignoreNames": [],
+      "ignorePatterns": [],
+      "clas": "^Z2UI5_SQL_C(L|X)",
+      "intf": "^Z2UI5_SQL_IF",
+      "prog": "^Z2UI5_SQL",
+      "fugr": "^Z",
+      "tabl": "^Z2UI5_SQL",
+      "ttyp": "^Z",
+      "dtel": "^Z",
+      "doma": "^Z",
+      "msag": "^Z",
+      "tran": "^Z",
+      "enqu": "^EZ",
+      "auth": "^Z",
+      "pinf": "^Z",
+      "idoc": "^Z",
+      "xslt": "^Z",
+      "ssfo": "^Z",
+      "ssst": "^Z",
+      "shlp": "^Z"
     },
     "prefer_returning_to_exporting": false,
     "preferred_compare_operator": false,
