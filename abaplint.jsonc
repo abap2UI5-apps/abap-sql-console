@@ -93,6 +93,7 @@
       "allowed": [
         "CLAS",
         "INTF",
+        "DEVC",
       ]
     },
     "ambiguous_statement": false,
