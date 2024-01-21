@@ -172,16 +172,17 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
                  )->button( text = `Clear Filter` press = client->_event( `PREVIEW_CLEAR_FILTER` ) icon = `sap-icon://delete`
         )->get_parent( )->get_parent( ).
 
-      DATA(lt_fields) = z2ui5_xlsx_cl_utility=>get_fieldlist_by_table( <tab> ).
+      DATA(lt_fields) = z2ui5_cl_util_func=>rtti_get_t_comp_by_data( <tab> ).
+      "get_fieldlist_by_table( <tab> ).
 
       DATA(lo_columns) = tab->columns( ).
       LOOP AT lt_fields INTO DATA(lv_field) FROM 1.
-        lo_columns->column( )->text( lv_field ).
+        lo_columns->column( )->text( lv_field-name ).
       ENDLOOP.
 
       DATA(lo_cells) = tab->items( )->column_list_item( )->cells( ).
       LOOP AT lt_fields INTO lv_field FROM 1.
-        lo_cells->text( `{` && lv_field && `}` ).
+        lo_cells->text( `{` && lv_field-name && `}` ).
       ENDLOOP.
 
     ELSE.
