@@ -94,6 +94,7 @@
         "CLAS",
         "INTF",
         "DEVC",
+        "TABL",
       ]
     },
     "ambiguous_statement": false,
