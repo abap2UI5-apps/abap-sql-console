@@ -12,7 +12,7 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         preview_title        TYPE string,
         preview_search_field TYPE string,
         sql_input            TYPE string,
-        sql_s_command        TYPE z2ui5_sql_cl_util=>ty_s_sql_result,
+        sql_s_command        TYPE z2ui5_cl_util_func=>ty_s_sql_result,
         sql_max_rows         TYPE i,
         sql_cont_size        TYPE string,
         history_cont_size    TYPE string,
@@ -22,15 +22,20 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
 
   PROTECTED SECTION.
 
+    DATA:
+      BEGIN OF ms_control,
+        check_initialized          TYPE abap_bool,
+        callback_pop_session_load  TYPE string,
+        callback_pop_history_clear TYPE string,
+      END OF ms_control.
     DATA client TYPE REF TO z2ui5_if_client.
-    DATA check_initialized TYPE abap_bool.
 
     METHODS z2ui5_view_display.
     METHODS sql_db_read.
     METHODS history_db_read.
     METHODS preview_on_filter_search.
     METHODS history_on_clear_pressed.
-    METHODS z2ui5_on_navigated.
+    METHODS z2ui5_on_callback.
     METHODS z2ui5_on_event.
     METHODS sql_on_run.
     METHODS z2ui5_on_init.
@@ -45,8 +50,12 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
       IMPORTING
         view_history TYPE REF TO z2ui5_cl_xml_view.
     METHODS preview_on_filter_clear.
+    METHODS z2ui5_on_callback_pop_confirm
+      IMPORTING
+        io_popup TYPE REF TO z2ui5_if_app.
 
   PRIVATE SECTION.
+
 ENDCLASS.
 
 
@@ -65,7 +74,6 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     ASSIGN ms_draft-preview_tab_backup->* TO <tab2>.
 
     <tab2> = <tab>.
-
     ms_draft-preview_title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util_func=>c_trim( lines( <tab2> ) ) && `)`.
 
   ENDMETHOD.
@@ -84,7 +92,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
       client->message_box_display( `No history entries found. No action needed.` ).
       RETURN.
     ENDIF.
-    client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( `Delete all history entries from database?` ) ).
+    ms_control-callback_pop_history_clear = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( `Delete all history entries from database?` ) ).
 
   ENDMETHOD.
 
@@ -187,7 +195,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     TRY.
 
-        DATA(ls_sql_command) = z2ui5_sql_cl_util=>get_sql_by_string( ms_draft-sql_input ).
+        DATA(ls_sql_command) = z2ui5_cl_util_func=>get_sql_by_string( ms_draft-sql_input ).
 
         IF ms_draft-sql_s_command-table <> ls_sql_command-table.
           CREATE DATA ms_draft-preview_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
@@ -206,7 +214,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
             sql_command = ms_draft-sql_input
             tabname     = ms_draft-sql_s_command-table
             counter     = lines( <tab> )
-            result_data = /ui2/cl_json=>serialize( <tab> ) ) ).
+            result_data = z2ui5_cl_util_func=>trans_xml_any_2( <tab> ) ) ).
 
         history_db_read( ).
 
@@ -232,14 +240,14 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     me->client = client.
 
-    IF check_initialized = abap_false.
-      check_initialized = abap_true.
+    IF ms_control-check_initialized = abap_false.
+      ms_control-check_initialized = abap_true.
       z2ui5_on_init( ).
       RETURN.
     ENDIF.
 
     IF client->get( )-check_on_navigated = abap_true.
-      z2ui5_on_navigated( ).
+      z2ui5_on_callback( ).
       RETURN.
     ENDIF.
 
@@ -249,6 +257,14 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
 
   METHOD z2ui5_on_init.
+
+*    DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_session( ).
+*    TRY.
+**    DATA(lo_app) = client->get_app( lv_id ).
+*        ms_control-callback_pop_session_load = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( `Active session found, you want to return?` ) ).
+*        RETURN.
+*      CATCH cx_root.
+*    ENDTRY.
 
     ms_draft-sql_input = `Select from T100 fields * .`.
     ms_draft-history_cont_size = `30%`.
@@ -263,15 +279,12 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_on_navigated.
+  METHOD z2ui5_on_callback.
 
     TRY.
         DATA(lo_popup_confirm) = CAST z2ui5_cl_popup_to_confirm( client->get_app( client->get( )-s_draft-id_prev_app ) ).
         IF lo_popup_confirm->result( ).
-          CLEAR ms_draft-history_tab.
-          client->view_model_update( ).
-          z2ui5_sql_cl_history_api=>db_delete( ).
-          client->message_toast_display( `All entries succesfully deleted from database` ).
+          z2ui5_on_callback_pop_confirm( lo_popup_confirm ).
         ENDIF.
       CATCH cx_root.
     ENDTRY.
@@ -371,6 +384,25 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     client->view_model_update( ).
     client->message_toast_display( 'all filter deleted' ).
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_on_callback_pop_confirm.
+
+    CASE io_popup->id_app.
+
+      WHEN ms_control-callback_pop_session_load.
+
+
+      WHEN ms_control-callback_pop_history_clear.
+
+        CLEAR ms_draft-history_tab.
+        client->view_model_update( ).
+        z2ui5_sql_cl_history_api=>db_delete( ).
+        client->message_toast_display( `All entries succesfully deleted from database` ).
+
+    ENDCASE.
 
   ENDMETHOD.
 

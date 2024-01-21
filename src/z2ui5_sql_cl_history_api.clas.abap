@@ -20,7 +20,15 @@ CLASS z2ui5_sql_cl_history_api DEFINITION
 
     CLASS-METHODS db_delete
       IMPORTING
-        user type clike DEFAULT sy-uname.
+        user TYPE clike DEFAULT sy-uname.
+
+    CLASS-METHODS db_create_session
+      IMPORTING
+        VALUE(val) TYPE clike.
+
+    CLASS-METHODS db_read_session
+      RETURNING
+        VALUE(result) TYPE string.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -32,7 +40,7 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
   METHOD db_create.
 
-    val-uuid = z2ui5_sql_cl_util=>get_uuid32( ).
+    val-uuid = z2ui5_cl_util_func=>func_get_uuid_32( ).
     val-uname = sy-uname.
     MODIFY z2ui5_sql_t_01 FROM @val.
     COMMIT WORK AND WAIT.
@@ -50,8 +58,24 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
   METHOD db_delete.
 
-    delete from z2ui5_sql_t_01 where uname = user.
-    commit work and wait.
+    DELETE FROM z2ui5_sql_t_01 WHERE uname = user.
+    COMMIT WORK AND WAIT.
+
+  ENDMETHOD.
+
+  METHOD db_create_session.
+
+    MODIFY z2ui5_sql_t_01 FROM @( VALUE #( uuid = sy-uname result_data = val ) ).
+    COMMIT WORK AND WAIT.
+
+  ENDMETHOD.
+
+  METHOD db_read_session.
+
+    SELECT SINGLE FROM z2ui5_sql_t_01
+         FIELDS result_data
+     WHERE uuid = @sy-uname
+     INTO @result.
 
   ENDMETHOD.
 
