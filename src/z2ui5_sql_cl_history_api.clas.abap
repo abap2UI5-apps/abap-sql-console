@@ -12,21 +12,27 @@ CLASS z2ui5_sql_cl_history_api DEFINITION
       IMPORTING
         VALUE(val) TYPE ty_s_entry.
 
-    CLASS-METHODS db_read_by_user
+    CLASS-METHODS db_read_multi_by_user
       IMPORTING
         val           TYPE clike DEFAULT sy-uname
       RETURNING
         VALUE(result) TYPE ty_t_entry.
 
+    CLASS-METHODS db_read_by_id
+      IMPORTING
+        val           TYPE clike DEFAULT sy-uname
+      RETURNING
+        VALUE(result) TYPE ty_s_entry.
+
     CLASS-METHODS db_delete
       IMPORTING
         user TYPE clike DEFAULT sy-uname.
 
-    CLASS-METHODS db_create_session
+    CLASS-METHODS db_create_draft
       IMPORTING
         VALUE(val) TYPE clike.
 
-    CLASS-METHODS db_read_session
+    CLASS-METHODS db_read_draft
       RETURNING
         VALUE(result) TYPE string.
 
@@ -42,12 +48,13 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
     val-uuid = z2ui5_cl_util_func=>func_get_uuid_32( ).
     val-uname = sy-uname.
+    val-timestampl = z2ui5_cl_util_func=>time_get_timestampl( ).
     MODIFY z2ui5_sql_t_01 FROM @val.
     COMMIT WORK AND WAIT.
 
   ENDMETHOD.
 
-  METHOD db_read_by_user.
+  METHOD db_read_multi_by_user.
 
     SELECT FROM z2ui5_sql_t_01
         FIELDS *
@@ -63,19 +70,28 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD db_create_session.
+  METHOD db_create_draft.
 
     MODIFY z2ui5_sql_t_01 FROM @( VALUE #( uuid = sy-uname result_data = val ) ).
     COMMIT WORK AND WAIT.
 
   ENDMETHOD.
 
-  METHOD db_read_session.
+  METHOD db_read_draft.
 
     SELECT SINGLE FROM z2ui5_sql_t_01
          FIELDS result_data
      WHERE uuid = @sy-uname
      INTO @result.
+
+  ENDMETHOD.
+
+  METHOD db_read_by_id.
+
+    SELECT single FROM z2ui5_sql_t_01
+        FIELDS *
+    WHERE uuid = @val
+    INTO CORRESPONDING FIELDS OF @result.
 
   ENDMETHOD.
 

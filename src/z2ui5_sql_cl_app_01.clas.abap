@@ -4,6 +4,14 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
 
     INTERFACES z2ui5_if_app.
 
+    TYPES:
+      BEGIN OF ty_history_out,
+        s_db  TYPE z2ui5_sql_cl_history_api=>ty_s_entry,
+        time  TYPE string,
+        date  TYPE string,
+        selkz TYPE abap_bool,
+      END OF ty_history_out.
+
     DATA:
       BEGIN OF ms_draft,
         preview_tab          TYPE REF TO data,
@@ -16,7 +24,7 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         sql_max_rows         TYPE i,
         sql_cont_size        TYPE string,
         history_cont_size    TYPE string,
-        history_tab          TYPE z2ui5_sql_cl_history_api=>ty_t_entry,
+        history_tab          TYPE STANDARD TABLE OF ty_history_out WITH EMPTY KEY,
         appwidthlimited      TYPE abap_bool,
       END OF ms_draft.
 
@@ -38,7 +46,6 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
     METHODS z2ui5_on_callback.
     METHODS z2ui5_on_event.
     METHODS sql_on_run.
-    METHODS z2ui5_on_init.
 
     METHODS sql_view_display
       IMPORTING
@@ -52,7 +59,11 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
     METHODS preview_on_filter_clear.
     METHODS z2ui5_on_callback_pop_confirm
       IMPORTING
-        io_popup TYPE REF TO z2ui5_if_app.
+        io_popup TYPE REF TO z2ui5_cl_popup_to_confirm.
+    METHODS history_on_load.
+    METHODS history_db_save.
+    METHODS z2ui5_on_init_check_draft.
+    METHODS z2ui5_on_init_set_app.
 
   PRIVATE SECTION.
 
@@ -81,7 +92,19 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
   METHOD history_db_read.
 
-    ms_draft-history_tab = CORRESPONDING #( z2ui5_sql_cl_history_api=>db_read_by_user( ) EXCEPT result_data ).
+    CLEAR ms_draft-history_tab.
+    LOOP AT z2ui5_sql_cl_history_api=>db_read_multi_by_user( ) REFERENCE INTO DATA(lr_history).
+
+
+      INSERT VALUE #(
+          s_db =  CORRESPONDING #( lr_history->* EXCEPT result_data )
+          time = |{ lr_history->timestampl TIMESTAMP = ISO }|
+*          date = z2ui5_cl_util_func=>time_get_date_by_stampl( lr_history->timestampl )
+          ) INTO TABLE ms_draft-history_tab.
+
+    ENDLOOP.
+
+    SORT ms_draft-history_tab BY s_db-timestampl DESCENDING.
 
   ENDMETHOD.
 
@@ -102,7 +125,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     view_history->list(
           items           = client->_bind_edit( ms_draft-history_tab )
           mode            = `SingleSelectMaster`
-          selectionchange = client->_event( 'SELCHANGE' )
+          selectionchange = client->_event( val = 'HISTORY_LOAD' )
            sticky              = 'ColumnHeaders,HeaderToolbar'
              )->header_toolbar(
              )->overflow_toolbar(
@@ -112,12 +135,14 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
                  )->button( text = `Clear` press = client->_event( `HISTORY_CLEAR` ) icon = `sap-icon://delete`
         )->get_parent( )->get_parent(
           )->standard_list_item(
-              title       = '{TABNAME}'
-              description = '{SQL_COMMAND}'
+              title       = '{S_DB/TABNAME} - {DATE} {TIME}'
+*              title       = `{ path: 'DATE' ,  type: 'sap.ui.model.type.String' , formatter : function(value){ return '100'; } }`
+*              title       = `{ path: 'DATE' ,  type: 'sap.ui.model.type.String' , formatter : function(value){ return '100'; } }`
+              description = '{S_DB/SQL_COMMAND}'
 *              icon        = '{ICON}'
-              info        = '{COUNTER}'
-              press       = client->_event( 'TEST' )
-*              selected    = `{SELECTED}`
+              info        = '{S_DB/COUNTER}'
+*              press       = client->_event( val = 'HISTORY_LOAD' t_arg = VALUE #( ( `{S_DB/UUID}`) ) )
+              selected    = `{SELKZ}`
          ).
 
   ENDMETHOD.
@@ -173,7 +198,6 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
         )->get_parent( )->get_parent( ).
 
       DATA(lt_fields) = z2ui5_cl_util_func=>rtti_get_t_comp_by_data( <tab> ).
-      "get_fieldlist_by_table( <tab> ).
 
       DATA(lo_columns) = tab->columns( ).
       LOOP AT lt_fields INTO DATA(lv_field) FROM 1.
@@ -194,34 +218,22 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
   METHOD sql_on_run.
 
-    TRY.
+    DATA(ls_sql_command) = z2ui5_cl_util_func=>get_sql_by_string( ms_draft-sql_input ).
 
-        DATA(ls_sql_command) = z2ui5_cl_util_func=>get_sql_by_string( ms_draft-sql_input ).
+    IF ms_draft-sql_s_command-table <> ls_sql_command-table.
+      CREATE DATA ms_draft-preview_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
+      CREATE DATA ms_draft-preview_tab_backup TYPE STANDARD TABLE OF (ls_sql_command-table).
+      z2ui5_view_display( ).
+    ELSE.
+      client->view_model_update( ).
+    ENDIF.
 
-        IF ms_draft-sql_s_command-table <> ls_sql_command-table.
-          CREATE DATA ms_draft-preview_tab TYPE STANDARD TABLE OF (ls_sql_command-table).
-          CREATE DATA ms_draft-preview_tab_backup TYPE STANDARD TABLE OF (ls_sql_command-table).
-          z2ui5_view_display( ).
-        ELSE.
-          client->view_model_update( ).
-        ENDIF.
+    ms_draft-sql_s_command = ls_sql_command.
+    sql_db_read( ).
 
-        ms_draft-sql_s_command = ls_sql_command.
-        sql_db_read( ).
-
-        FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
-        ASSIGN ms_draft-preview_tab->* TO <tab>.
-        z2ui5_sql_cl_history_api=>db_create( VALUE #(
-            sql_command = ms_draft-sql_input
-            tabname     = ms_draft-sql_s_command-table
-            counter     = lines( <tab> )
-            result_data = z2ui5_cl_util_func=>trans_xml_any_2( <tab> ) ) ).
-
-        history_db_read( ).
-
-      CATCH cx_root INTO DATA(x).
-        client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
-    ENDTRY.
+    history_db_save( ).
+    history_db_read( ).
+    client->message_toast_display( `Database succesfully loaded` ).
 
   ENDMETHOD.
 
@@ -238,45 +250,26 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
 
   METHOD z2ui5_if_app~main.
+    TRY.
 
-    me->client = client.
+        me->client = client.
 
-    IF ms_control-check_initialized = abap_false.
-      ms_control-check_initialized = abap_true.
-      z2ui5_on_init( ).
-      RETURN.
-    ENDIF.
+        IF ms_control-check_initialized = abap_false.
+          ms_control-check_initialized = abap_true.
+          z2ui5_on_init_check_draft( ).
+          RETURN.
+        ENDIF.
 
-    IF client->get( )-check_on_navigated = abap_true.
-      z2ui5_on_callback( ).
-      RETURN.
-    ENDIF.
+        IF client->get( )-check_on_navigated = abap_true.
+          z2ui5_on_callback( ).
+          RETURN.
+        ENDIF.
 
-    z2ui5_on_event(  ).
+        z2ui5_on_event(  ).
 
-  ENDMETHOD.
-
-
-  METHOD z2ui5_on_init.
-
-*    DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_session( ).
-*    TRY.
-**    DATA(lo_app) = client->get_app( lv_id ).
-*        ms_control-callback_pop_session_load = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( `Active session found, you want to return?` ) ).
-*        RETURN.
-*      CATCH cx_root.
-*    ENDTRY.
-
-    ms_draft-sql_input = `Select from T100 fields * .`.
-    ms_draft-history_cont_size = `30%`.
-    ms_draft-sql_cont_size = `auto`.
-    ms_draft-preview_cont_size = `auto`.
-    ms_draft-sql_max_rows = 10000.
-    ms_draft-appwidthlimited = abap_true.
-    z2ui5_view_display( ).
-
-    history_db_read( ).
-
+      CATCH cx_root INTO DATA(x).
+        client->nav_app_call( z2ui5_cl_popup_error=>factory( x ) ).
+    ENDTRY.
   ENDMETHOD.
 
 
@@ -284,9 +277,14 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     TRY.
         DATA(lo_popup_confirm) = CAST z2ui5_cl_popup_to_confirm( client->get_app( client->get( )-s_draft-id_prev_app ) ).
-        IF lo_popup_confirm->result( ).
-          z2ui5_on_callback_pop_confirm( lo_popup_confirm ).
-        ENDIF.
+        z2ui5_on_callback_pop_confirm( lo_popup_confirm ).
+        RETURN.
+      CATCH cx_root.
+    ENDTRY.
+
+    TRY.
+        z2ui5_view_display( ).
+        RETURN.
       CATCH cx_root.
     ENDTRY.
 
@@ -348,7 +346,12 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
   METHOD z2ui5_on_event.
 
+    z2ui5_sql_cl_history_api=>db_create_draft( client->get( )-s_draft-id ).
+
     CASE client->get( )-event.
+
+      when `PREVIEW_FILTER`.
+      client->nav_app_call( z2ui5_cl_popup_get_range_multi=>factory( ms_draft-preview_tab ) ).
 
       WHEN 'PREVIEW_CLEAR_FILTER'.
         preview_on_filter_clear( ).
@@ -361,6 +364,9 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
       WHEN 'HISTORY_CLEAR'.
         history_on_clear_pressed( ).
+
+      WHEN 'HISTORY_LOAD'.
+        history_on_load( ).
 
       WHEN 'BACK'.
         client->nav_app_leave( client->get_app( client->get( )-s_draft-id_prev_app_stack ) ).
@@ -391,10 +397,16 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
   METHOD z2ui5_on_callback_pop_confirm.
 
-    CASE io_popup->id_app.
+    CASE io_popup->z2ui5_if_app~id_app.
 
       WHEN ms_control-callback_pop_session_load.
 
+        IF io_popup->result( ).
+          DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_draft( ).
+          client->nav_app_leave( client->get_app( lv_id ) ).
+        ELSE.
+          z2ui5_on_init_set_app( ).
+        ENDIF.
 
       WHEN ms_control-callback_pop_history_clear.
 
@@ -404,6 +416,66 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
         client->message_toast_display( `All entries succesfully deleted from database` ).
 
     ENDCASE.
+
+  ENDMETHOD.
+
+  METHOD history_on_load.
+
+    DATA(ls_arg) = ms_draft-history_tab[ selkz = abap_true ].
+    DATA(ls_entry) = z2ui5_sql_cl_history_api=>db_read_by_id( ls_arg-s_db-uuid ).
+    ms_draft-sql_input = ls_entry-sql_command.
+    z2ui5_cl_util_func=>rtti_xml_set_to_data(
+      EXPORTING
+        rtti_data = ls_entry-result_data
+      IMPORTING
+        e_data    = ms_draft-preview_tab
+    ).
+
+    ms_draft-preview_tab_backup = z2ui5_cl_util_func=>copy_ref_data_to_ref_data( ms_draft-preview_tab ).
+
+    z2ui5_view_display( ).
+    client->message_toast_display( `history entry successfully loaded` ).
+
+  ENDMETHOD.
+
+
+  METHOD history_db_save.
+
+    FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-preview_tab->* TO <tab>.
+    z2ui5_sql_cl_history_api=>db_create( VALUE #(
+        sql_command = ms_draft-sql_input
+        tabname     = ms_draft-sql_s_command-table
+        counter     = lines( <tab> )
+        result_data = z2ui5_cl_util_func=>rtti_xml_get_by_data( <tab> ) ) ).
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_on_init_check_draft.
+
+    TRY.
+        DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_draft( ).
+        DATA(lo_app) = client->get_app( lv_id ).
+        ms_control-callback_pop_session_load = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( |Active draft for user { sy-uname } found, you want to return?| ) ).
+      CATCH cx_root.
+        z2ui5_on_init_set_app( ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD z2ui5_on_init_set_app.
+
+    ms_draft-sql_input = `Select from T100 fields * .`.
+    ms_draft-history_cont_size = `30%`.
+    ms_draft-sql_cont_size = `auto`.
+    ms_draft-preview_cont_size = `auto`.
+    ms_draft-sql_max_rows = 10000.
+    ms_draft-appwidthlimited = abap_true.
+    z2ui5_view_display( ).
+
+    history_db_read( ).
 
   ENDMETHOD.
 
