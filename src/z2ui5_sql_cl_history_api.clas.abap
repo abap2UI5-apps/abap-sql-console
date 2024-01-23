@@ -46,9 +46,7 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
   METHOD db_create.
 
-    val-uuid = z2ui5_cl_util_func=>func_get_uuid_32( ).
     val-uname = sy-uname.
-    val-timestampl = z2ui5_cl_util_func=>time_get_timestampl( ).
     MODIFY z2ui5_sql_t_01 FROM @val.
     COMMIT WORK AND WAIT.
 
