@@ -20,7 +20,6 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         title          TYPE string,
         search_field   TYPE string,
         t_filter       TYPE z2ui5_cl_util_func=>ty_t_sql_multi,
-*          rtti_info    type string,
         rtti_data      TYPE string,
         rtti_data_back TYPE string,
       END OF ty_s_preview.
@@ -34,7 +33,6 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         history_cont_size TYPE string,
         history_tab       TYPE STANDARD TABLE OF ty_history_out WITH EMPTY KEY,
         appwidthlimited   TYPE abap_bool,
-
       END OF ms_draft.
 
   PROTECTED SECTION.
@@ -82,7 +80,7 @@ ENDCLASS.
 
 
 
-CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
+CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
 
   METHOD history_db_read.
@@ -492,7 +490,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     TRY.
         DATA(lo_popup_range) = CAST z2ui5_cl_popup_get_range_multi( client->get_app( client->get( )-s_draft-id_prev_app ) ).
-        IF lo_popup_range->result( )-check_cancel = abap_false.
+        IF lo_popup_range->result( )-check_confirmed = abap_true.
           ms_draft-s_preview-t_filter = lo_popup_range->result( )-t_sql.
           preview_on_filter( ).
         ENDIF.
