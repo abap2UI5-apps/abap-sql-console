@@ -19,7 +19,7 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
         cont_size      TYPE string,
         title          TYPE string,
         search_field   TYPE string,
-        t_filter       TYPE z2ui5_cl_util_func=>ty_t_sql_multi,
+        t_filter       TYPE z2ui5_cl_util_func=>ty_t_filter_multi,
         rtti_data      TYPE string,
         rtti_data_back TYPE string,
       END OF ty_s_preview.
@@ -121,14 +121,14 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     CLEAR ls_preview-tab.
     CLEAR ls_preview-tab_backup.
 
-    ls_preview-rtti_data = z2ui5_cl_util_func=>rtti_xml_get_by_data( <tab> ).
+    ls_preview-rtti_data = z2ui5_cl_util_func=>trans_srtti_xml_by_data( <tab> ).
     IF <tab_back> IS  ASSIGNED.
-      ls_preview-rtti_data_back = z2ui5_cl_util_func=>rtti_xml_get_by_data( <tab_back> ).
+      ls_preview-rtti_data_back = z2ui5_cl_util_func=>trans_srtti_xml_by_data( <tab_back> ).
     ENDIF.
 
     lr_hist->s_db-timestampl = z2ui5_cl_util_func=>time_get_timestampl( ).
     IF lr_hist->s_db-uuid IS INITIAL.
-      lr_hist->s_db-uuid = z2ui5_cl_util_func=>func_get_uuid_32( ).
+      lr_hist->s_db-uuid = z2ui5_cl_util_func=>uuid_get_c32( ).
     ENDIF.
     z2ui5_sql_cl_history_api=>db_create( VALUE #(
         sql_command = ms_draft-sql_input
@@ -136,7 +136,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
         timestampl  = lr_hist->s_db-timestampl
         uuid = lr_hist->s_db-uuid
         counter     = lines( <tab> )
-        result_data = z2ui5_cl_util_func=>rtti_xml_get_by_data( ls_preview ) ) ).
+        result_data = z2ui5_cl_util_func=>trans_srtti_xml_by_data( ls_preview ) ) ).
 
     lr_hist->s_db-sql_command = ms_draft-sql_input.
     lr_hist->s_db-tabname = ms_draft-sql_s_command-table.
@@ -164,7 +164,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     DATA lr_preview TYPE REF TO data.
 *    create data ls_preview like ms_draft-s_preview.
-    z2ui5_cl_util_func=>rtti_xml_set_to_data(
+    z2ui5_cl_util_func=>trans_srtti_xml_2_data(
       EXPORTING
         rtti_data = ls_entry-result_data
       IMPORTING
@@ -188,25 +188,25 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     ASSIGN lr_preview->('rtti_data') TO <any>.
 
-    z2ui5_cl_util_func=>rtti_xml_set_to_data(
+    z2ui5_cl_util_func=>trans_srtti_xml_2_data(
        EXPORTING
         rtti_data = <any>
       IMPORTING
         e_data    = lr_data
     ).
 
-    ms_draft-s_preview-tab = z2ui5_cl_util_func=>copy_ref_data_to_ref_data( lr_data ).
+    ms_draft-s_preview-tab = z2ui5_cl_util_func=>conv_copy_ref_data( lr_data ).
 
     ASSIGN lr_preview->('rtti_data_back') TO <any>.
 
-    z2ui5_cl_util_func=>rtti_xml_set_to_data(
+    z2ui5_cl_util_func=>trans_srtti_xml_2_data(
        EXPORTING
         rtti_data = <any>
       IMPORTING
         e_data    = lr_data
     ).
 
-    ms_draft-s_preview-tab_backup = z2ui5_cl_util_func=>copy_ref_data_to_ref_data( lr_data ).
+    ms_draft-s_preview-tab_backup = z2ui5_cl_util_func=>conv_copy_ref_data( lr_data ).
 
 *    z2ui5_cl_util_func=>rtti_xml_set_to_data(
 *        EXPORTING
@@ -276,7 +276,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     IF ms_draft-s_preview-search_field IS NOT INITIAL.
 
-      z2ui5_cl_util_func=>get_tab_filter_by_val(
+      z2ui5_cl_util_func=>itab_filter_by_val(
         EXPORTING
           val = ms_draft-s_preview-search_field
         CHANGING
@@ -289,7 +289,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
   METHOD preview_on_filter.
 
-    ms_draft-s_preview-tab = z2ui5_cl_util_func=>copy_ref_data_to_ref_data( ms_draft-s_preview-tab_backup ).
+    ms_draft-s_preview-tab = z2ui5_cl_util_func=>conv_copy_ref_data( ms_draft-s_preview-tab_backup ).
     preview_filter_range( ).
     preview_filter_search( ).
     FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
@@ -415,7 +415,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     FIELD-SYMBOLS <tab2> TYPE STANDARD TABLE.
     ASSIGN ms_draft-s_preview-tab_backup->* TO <tab2>.
 
-    ms_draft-s_preview-t_filter = z2ui5_cl_util_func=>get_sql_multi_by_data( <tab> ).
+    ms_draft-s_preview-t_filter = z2ui5_cl_util_func=>filter_get_multi_by_data( <tab> ).
     <tab2> = <tab>.
     ms_draft-s_preview-title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util_func=>c_trim( lines( <tab2> ) ) && `)`.
 
@@ -424,7 +424,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
   METHOD sql_on_run.
 
-    DATA(ls_sql_command) = z2ui5_cl_util_func=>get_sql_by_string( ms_draft-sql_input ).
+    DATA(ls_sql_command) = z2ui5_cl_util_func=>sql_get_by_string( ms_draft-sql_input ).
 
     IF ms_draft-sql_s_command-table <> ls_sql_command-table.
       CREATE DATA ms_draft-s_preview-tab TYPE STANDARD TABLE OF (ls_sql_command-table).
