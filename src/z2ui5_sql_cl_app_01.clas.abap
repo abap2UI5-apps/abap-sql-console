@@ -345,7 +345,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
                  )->button( text = `Clear Filter` press = client->_event( `PREVIEW_CLEAR_FILTER` ) icon = `sap-icon://delete`
         )->get_parent( )->get_parent( ).
 
-      DATA(lt_fields) = z2ui5_cl_util=>rtti_get_t_comp_by_data( <tab> ).
+      DATA(lt_fields) = z2ui5_cl_util=>rtti_get_t_attri_by_struc( <tab> ).
 
       DATA(lo_columns) = tab->columns( ).
       LOOP AT lt_fields INTO DATA(lv_field) FROM 1.
