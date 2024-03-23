@@ -230,7 +230,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
            sticky              = 'ColumnHeaders,HeaderToolbar'
              )->header_toolbar(
              )->overflow_toolbar(
-                 )->title( 'Selects'
+                 )->title( 'Query History'
                  )->toolbar_spacer(
                 )->toolbar_spacer(
                  )->button( text = `New` press = client->_event( `HISTORY_CREATE` ) icon = `sap-icon://create`
@@ -340,8 +340,8 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
                  )->toolbar_spacer(
                 )->input( width = `30%` value = client->_bind_edit( ms_draft-s_preview-search_field ) description = `All Column Search`  submit = client->_event( `PREVIEW_SEARCH` )
                  )->toolbar_spacer(
-                 )->button( text = `Filter` press = client->_event( `PREVIEW_FILTER` ) icon = `sap-icon://filter`
-                 )->button( text = `Clear Filter` press = client->_event( `PREVIEW_CLEAR_FILTER` ) icon = `sap-icon://delete`
+*                 )->button( text = `Filter` press = client->_event( `PREVIEW_FILTER` ) icon = `sap-icon://filter`
+*                 )->button( text = `Clear Filter` press = client->_event( `PREVIEW_CLEAR_FILTER` ) icon = `sap-icon://delete`
         )->get_parent( )->get_parent( ).
 
       DATA(lt_fields) = z2ui5_cl_util=>rtti_get_t_attri_by_struc( <tab> ).
