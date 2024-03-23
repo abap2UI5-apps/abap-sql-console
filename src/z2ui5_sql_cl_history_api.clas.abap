@@ -86,7 +86,7 @@ CLASS z2ui5_sql_cl_history_api IMPLEMENTATION.
 
   METHOD db_read_by_id.
 
-    SELECT single FROM z2ui5_sql_t_01
+    SELECT SINGLE FROM z2ui5_sql_t_01
         FIELDS *
     WHERE uuid = @val
     INTO CORRESPONDING FIELDS OF @result.
