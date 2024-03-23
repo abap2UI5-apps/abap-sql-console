@@ -165,36 +165,45 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     ms_draft-sql_input = ls_entry-sql_command.
 
     DATA lr_preview TYPE REF TO data.
+    FIELD-SYMBOLS <tab2> TYPE any.
+    ASSIGN ms_draft-s_preview-tab->* TO <tab2>.
+    IF sy-subrc = 0.
+      client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
+      CLEAR ms_draft-s_preview-tab.
+    ENDIF.
+
 *    create data ls_preview like ms_draft-s_preview.
-    lr_preview = z2ui5_cl_util=>xml_srtti_parse( rtti_data = ls_entry-result_data ).
+    IF ls_entry-result_data IS NOT INITIAL.
+      lr_preview = z2ui5_cl_util=>xml_srtti_parse( rtti_data = ls_entry-result_data ).
 
-    FIELD-SYMBOLS <any> TYPE any.
-    ASSIGN lr_preview->('title') TO <any>.
-    ms_draft-s_preview-title = <any>.
-    ASSIGN lr_preview->('search_field') TO <any>.
-    ms_draft-s_preview-search_field = <any>.
-    ASSIGN lr_preview->('t_filter') TO <any>.
-    ms_draft-s_preview-t_filter = <any>.
+      FIELD-SYMBOLS <any> TYPE any.
+      ASSIGN lr_preview->('title') TO <any>.
+      ms_draft-s_preview-title = <any>.
+      ASSIGN lr_preview->('search_field') TO <any>.
+      ms_draft-s_preview-search_field = <any>.
+      ASSIGN lr_preview->('t_filter') TO <any>.
+      ms_draft-s_preview-t_filter = <any>.
 
-    FIELD-SYMBOLS <preview> TYPE data.
-    ASSIGN lr_preview->* TO <preview>.
+      FIELD-SYMBOLS <preview> TYPE data.
+      ASSIGN lr_preview->* TO <preview>.
 
 
-    FIELD-SYMBOLS <tab> TYPE any.
-    DATA lr_data TYPE REF TO data.
+      FIELD-SYMBOLS <tab> TYPE any.
+      DATA lr_data TYPE REF TO data.
 
-    ASSIGN lr_preview->('rtti_data') TO <any>.
+      ASSIGN lr_preview->('rtti_data') TO <any>.
 
-    lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
+      lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
 
-    ms_draft-s_preview-tab = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
+      ms_draft-s_preview-tab = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
 
-    ASSIGN lr_preview->('rtti_data_back') TO <any>.
+      ASSIGN lr_preview->('rtti_data_back') TO <any>.
 
-    lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
+      lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
 
-    ms_draft-s_preview-tab_backup = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
+      ms_draft-s_preview-tab_backup = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
 
+    ENDIF.
 *    z2ui5_cl_util_func=>rtti_xml_set_to_data(
 *        EXPORTING
 *            rtti_data = <preview>-rtti_data_back
@@ -282,7 +291,10 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
     ASSIGN ms_draft-s_preview-tab->* TO <tab>.
     ms_draft-s_preview-title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util=>c_trim( lines( <tab> ) ) && `)`.
+
+    client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
     preview_view( ).
+*    client->nest_view_model_update( ).
     history_db_save( ).
     client->message_toast_display( `Search field filter updated` ).
 
@@ -416,6 +428,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     IF ms_draft-sql_s_command-table <> ls_sql_command-table.
       CREATE DATA ms_draft-s_preview-tab TYPE STANDARD TABLE OF (ls_sql_command-table).
       CREATE DATA ms_draft-s_preview-tab_backup TYPE STANDARD TABLE OF (ls_sql_command-table).
+      client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
       preview_view( ).
     ENDIF.
     client->view_model_update( ).
@@ -573,7 +586,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
     ms_draft-history_cont_size = `30%`.
     ms_draft-sql_cont_size = `auto`.
     ms_draft-s_preview-cont_size = `auto`.
-    ms_draft-sql_max_rows = 10000.
+    ms_draft-sql_max_rows = 500.
     ms_draft-appwidthlimited = abap_true.
     z2ui5_view_display( ).
 
