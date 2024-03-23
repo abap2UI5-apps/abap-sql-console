@@ -80,7 +80,7 @@ ENDCLASS.
 
 
 
-CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
+CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
 
   METHOD history_db_read.
@@ -600,7 +600,7 @@ CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
     DATA(page) = view->shell( appwidthlimited = client->_bind_edit( ms_draft-appwidthlimited ) )->page(
-    title = 'abap2UI5 - SQL Console'
+    title = 'ABAP SQL Console'
     navbuttonpress = client->_event( 'BACK' )
     shownavbutton = abap_true
             )->header_content(

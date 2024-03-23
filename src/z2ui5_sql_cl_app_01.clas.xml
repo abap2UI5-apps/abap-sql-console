@@ -5,7 +5,7 @@
    <VSEOCLASS>
     <CLSNAME>Z2UI5_SQL_CL_APP_01</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>sql - console</DESCRIPT>
+    <DESCRIPT>abap sql console</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
