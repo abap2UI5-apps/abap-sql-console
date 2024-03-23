@@ -80,7 +80,7 @@ ENDCLASS.
 
 
 
-CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
+CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
 
   METHOD history_db_read.
@@ -116,7 +116,9 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     LOOP AT ms_draft-history_tab REFERENCE INTO DATA(lr_hist) WHERE selkz = abap_true.
       EXIT.
     ENDLOOP.
-
+    IF lr_hist IS NOT BOUND.
+      CREATE DATA lr_hist.
+    ENDIF.
     DATA(ls_preview) = ms_draft-s_preview.
     CLEAR ls_preview-tab.
     CLEAR ls_preview-tab_backup.
@@ -164,12 +166,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     DATA lr_preview TYPE REF TO data.
 *    create data ls_preview like ms_draft-s_preview.
-    z2ui5_cl_util=>xml_srtti_parse(
-      EXPORTING
-        rtti_data = ls_entry-result_data
-      IMPORTING
-        e_data    = lr_preview
-    ).
+    lr_preview = z2ui5_cl_util=>xml_srtti_parse( rtti_data = ls_entry-result_data ).
 
     FIELD-SYMBOLS <any> TYPE any.
     ASSIGN lr_preview->('title') TO <any>.
@@ -188,23 +185,13 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
     ASSIGN lr_preview->('rtti_data') TO <any>.
 
-    z2ui5_cl_util=>xml_srtti_parse(
-       EXPORTING
-        rtti_data = <any>
-      IMPORTING
-        e_data    = lr_data
-    ).
+    lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
 
     ms_draft-s_preview-tab = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
 
     ASSIGN lr_preview->('rtti_data_back') TO <any>.
 
-    z2ui5_cl_util=>xml_srtti_parse(
-       EXPORTING
-        rtti_data = <any>
-      IMPORTING
-        e_data    = lr_data
-    ).
+    lr_data = z2ui5_cl_util=>xml_srtti_parse( <any> ).
 
     ms_draft-s_preview-tab_backup = z2ui5_cl_util=>conv_copy_ref_data( lr_data ).
 
@@ -553,7 +540,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
       WHEN 'HISTORY_CLEAR'.
         history_on_clear_pressed( ).
 
-   WHEN 'HISTORY_CREATE'.
+      WHEN 'HISTORY_CREATE'.
         INSERT VALUE #( selkz = abap_true ) INTO TABLE ms_draft-history_tab.
         client->view_model_update( ).
       WHEN 'HISTORY_LOAD'.
