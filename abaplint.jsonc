@@ -41,7 +41,7 @@
     "cyclic_oo": false,
     "many_parentheses": true,
     "unused_ddic": true,
-    "dangerous_statement": true,
+    "dangerous_statement": false,
     "db_operation_in_loop": false,
     "identical_descriptions": false,
     "intf_referencing_clas": false,
