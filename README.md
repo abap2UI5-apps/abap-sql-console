@@ -7,8 +7,9 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * Data preview
 
 #### Compatibility:
-* S/4 Public Cloud (ABAP Cloud)
-* S/4 Private Cloud or On-Premise (Standard ABAP, ABAP Cloud)
+* BTP ABAP Environment (ABAP for Cloud)
+* S/4 Public Cloud ABAP Environment (ABAP for Cloud)
+* S/4 Private Cloud or On-Premise (ABAP for Cloud, Standard ABAP)
 * R/3 NetWeaver AS ABAP 7.50 or higher (Standard ABAP)
 
 #### Required Projects:
@@ -17,7 +18,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 
 #### TODO
 * Extend the input-to-SQL translation
-* Implement authorization handling
+* Add authorization checks
 
 #### Contribution & Support
 Pull Requests are welcome! Whether you're fixing a bug, adding new functionality, or improving the documentation, your contributions are always appreciated. If you run into problems, feel free to open an issue.
