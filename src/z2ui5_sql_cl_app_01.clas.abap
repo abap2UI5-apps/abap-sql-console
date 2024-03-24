@@ -80,7 +80,7 @@ ENDCLASS.
 
 
 
-CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
+CLASS z2ui5_sql_cl_app_01 IMPLEMENTATION.
 
 
   METHOD history_db_read.
@@ -285,18 +285,25 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
   METHOD preview_on_filter.
 
-    ms_draft-s_preview-tab = z2ui5_cl_util=>conv_copy_ref_data( ms_draft-s_preview-tab_backup ).
-    preview_filter_range( ).
-    preview_filter_search( ).
+
+*    DATA(lr_tab) = z2ui5_cl_util=>conv_copy_ref_data( ms_draft-s_preview-tab_backup ).
     FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
     ASSIGN ms_draft-s_preview-tab->* TO <tab>.
+    FIELD-SYMBOLS <tab2> TYPE STANDARD TABLE.
+    ASSIGN ms_draft-s_preview-tab_backup->* TO <tab2>.
+    <tab> = <tab2>.
+*    ms_draft-s_preview-tab =
+*    preview_filter_range( ).
+    preview_filter_search( ).
     ms_draft-s_preview-title = ms_draft-sql_s_command-table && ` (` && z2ui5_cl_util=>c_trim( lines( <tab> ) ) && `)`.
 
-    client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
-    preview_view( ).
-*    client->nest_view_model_update( ).
+*    client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
+*    client->_bind( <tab> ).
+*    preview_view( ).
+*    client->bind_update( <tab> ).
+    client->nest_view_model_update( ).
     history_db_save( ).
-    client->message_toast_display( `Search field filter updated` ).
+*    client->message_toast_display( `Search field filter updated` ).
 
   ENDMETHOD.
 
@@ -556,6 +563,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
       WHEN 'HISTORY_CREATE'.
         INSERT VALUE #( selkz = abap_true ) INTO TABLE ms_draft-history_tab.
         client->view_model_update( ).
+
       WHEN 'HISTORY_LOAD'.
         history_on_load( ).
 
@@ -569,13 +577,13 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
   METHOD z2ui5_on_init_check_draft.
 
-    TRY.
-        DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_draft( ).
-        DATA(lo_app) = client->get_app( lv_id ).
-        ms_control-callback_pop_session_load = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( |Active draft for user { sy-uname } found, you want to return?| ) ).
-      CATCH cx_root.
-        z2ui5_on_init_set_app( ).
-    ENDTRY.
+*    TRY.
+*        DATA(lv_id) = z2ui5_sql_cl_history_api=>db_read_draft( ).
+*        DATA(lo_app) = client->get_app( lv_id ).
+*        ms_control-callback_pop_session_load = client->nav_app_call( z2ui5_cl_popup_to_confirm=>factory( |Active draft for user { sy-uname } found, you want to return?| ) ).
+*      CATCH cx_root.
+    z2ui5_on_init_set_app( ).
+*    ENDTRY.
 
   ENDMETHOD.
 
@@ -591,7 +599,6 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     z2ui5_view_display( ).
 
     history_db_read( ).
-
 
   ENDMETHOD.
 
@@ -614,7 +621,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
                 )->toolbar_spacer(
                 )->label( `Shell`
                 )->switch( state = client->_bind_edit( ms_draft-appwidthlimited )
-                )->link( text = 'Project on GitHub' target = '_blank' href = 'https://github.com/oblomov-dev/a2UI5-sql_console'
+                )->link( text = 'Project on GitHub' target = '_blank' href = 'https://github.com/abap2ui5-apps/abap-sql-console'
     )->get_parent( )->get_parent( ).
 
     DATA(grid) = page->grid( 'L7 M12 S12' )->content( 'layout' ).
