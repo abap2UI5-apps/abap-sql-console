@@ -523,8 +523,6 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
 
 
 
-
-
     ELSE.
       lo_view_nested->text( `data preview...`  ).
     ENDIF.
