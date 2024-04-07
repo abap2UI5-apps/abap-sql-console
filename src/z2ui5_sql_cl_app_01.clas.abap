@@ -493,7 +493,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
                           alternaterowcolors = abap_true
                           showcolumnvisibilitymenu = abap_true
                           enableselectall = abap_false
-                          selectionBehavior = `RowOnly`
+                          selectionbehavior = `RowOnly`
                           visiblerowcountmode = `Interactive`
 *                          visiblerowcountmode = `Auto`
                           visiblerowcount = `7`
