@@ -1475,7 +1475,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
         ASSIGN lo_result->* TO <lft_data>.
         ASSIGN lo_result2->* TO <lft_data2>.
         APPEND LINES OF <lft_data2> TO <lft_data>.
-        REFRESH <lft_data2>.
+        CLEAR <lft_data2>.
         lw_time = lw_time + lw_time2.
         lw_count = lw_count + lw_count2.
       ENDWHILE.
