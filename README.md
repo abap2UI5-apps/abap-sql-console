@@ -23,6 +23,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * Extend the input-to-SQL translation
 * Add authorization checks
 * XLSX Export
+* Fix ABAP Cloud Readiness
 
 #### Contribution & Support
 Pull Requests are welcome! Whether you're fixing a bug, adding new functionality, or improving the documentation, your contributions are always appreciated. If you run into problems, feel free to open an issue.
