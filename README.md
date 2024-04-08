@@ -16,9 +16,13 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * S-RTTI
 * abap2UI5
 
+#### Credits
+* Logic for Query to ABAP SQL Translation used from [ZTOAD](https://github.com/marianfoo/ztoad), integrated by [choper725](https://github.com/choper725)
+
 #### TODO
 * Extend the input-to-SQL translation
 * Add authorization checks
+* XLSX Export
 
 #### Contribution & Support
 Pull Requests are welcome! Whether you're fixing a bug, adding new functionality, or improving the documentation, your contributions are always appreciated. If you run into problems, feel free to open an issue.
