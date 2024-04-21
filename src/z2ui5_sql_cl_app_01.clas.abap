@@ -567,7 +567,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     ENDTRY.
 
     TRY.
-        DATA(lo_popup_range) = CAST z2ui5_cl_popup_get_range_multi( client->get_app( client->get( )-s_draft-id_prev_app ) ).
+        DATA(lo_popup_range) = CAST z2ui5_cl_pop_get_range_multi( client->get_app( client->get( )-s_draft-id_prev_app ) ).
         IF lo_popup_range->result( )-check_confirmed = abap_true.
           ms_draft-s_preview-t_filter = lo_popup_range->result( )-t_sql.
           preview_on_filter( ).
@@ -619,7 +619,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
         z2ui5_on_init_set_app( ).
 
       WHEN `PREVIEW_FILTER`.
-        client->nav_app_call( z2ui5_cl_popup_get_range_multi=>factory( ms_draft-s_preview-t_filter ) ).
+        client->nav_app_call( z2ui5_cl_pop_get_range_multi=>factory( ms_draft-s_preview-t_filter ) ).
 
       WHEN 'PREVIEW_CLEAR_FILTER'.
         preview_on_filter_clear( ).
