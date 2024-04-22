@@ -94,7 +94,6 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
     DATA t_tab_filter TYPE STANDARD TABLE OF ty_sort WITH EMPTY KEY .
 
 
-
   PROTECTED SECTION.
 
     DATA:
@@ -460,6 +459,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     <tab2> = <tab>.
 
     client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
+    client->_bind_clear( `MT_COLUMN_CONFIG` ).
     preview_view( ).
 
     ms_draft-s_preview-t_filter = z2ui5_cl_util=>filter_get_multi_by_data( <tab> ).
@@ -537,10 +537,6 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
               )->_generic( ns = `html` name = `script` )->_cc_plain_xml( z2ui5_cl_cc_spreadsheet=>get_js( )
               )->stringify( ) ).
 
-*          client->nav_app_call( z2ui5_cl_popup_js_loader=>factory( z2ui5_cl_cc_spreadsheet=>get_js( mv_column_config ) ) ).
-
-
-*          z2ui5_on_init_set_app( ).
           RETURN.
         ENDIF.
 
