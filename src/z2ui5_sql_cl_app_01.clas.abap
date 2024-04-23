@@ -233,7 +233,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     ASSIGN ms_draft-s_preview-tab->* TO <tab2>.
     IF sy-subrc = 0.
       client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
-      client->_bind_clear( `MT_COLUMN_CONFIG` ).                     "feng add for bug 
+      client->_bind_clear( `MT_COLUMN_CONFIG` ).                     "feng add for bug
       CLEAR ms_draft-s_preview-tab.
     ENDIF.
 
