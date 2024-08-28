@@ -1,13 +1,13 @@
 {
-  "global": {
-    "files": "/src/**/*.*"
-  },
-  "dependencies": [
-    {
-      "url": "https://github.com/abapedia/steampunk-2305-api-intersect-702",
-      "folder": "/deps",
+    "global": {
       "files": "/src/**/*.*"
     },
+    "dependencies": [
+    {
+      "url": "https://github.com/abaplint/deps",
+      "folder": "/deps",
+      "files": "/src/**/*.*"
+  },
     {
       "url": "https://github.com/abap2UI5/abap2UI5",
       "folder": "/abap2UI5",
