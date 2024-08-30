@@ -1,6 +1,9 @@
 {
     "global": {
-      "files": "/src/**/*.*"
+      "files": "/src/**/*.*",
+      "skipGeneratedGatewayClasses": true,
+      "skipGeneratedFunctionGroups": true,
+      "skipGeneratedPersistentClasses": true
     },
     "dependencies": [
     {
@@ -16,7 +19,7 @@
   ],
   "syntax": {
     "version": "v750",
-    "errorNamespace": "."
+    "errorNamespace": "^(Z|Y|LCL_|TY_|LIF_)"
   },
   "rules": {
     "downport": true,
