@@ -232,8 +232,8 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     FIELD-SYMBOLS <tab2> TYPE any.
     ASSIGN ms_draft-s_preview-tab->* TO <tab2>.
     IF sy-subrc = 0.
-      client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
-      client->_bind_clear( `MT_COLUMN_CONFIG` ).                     "feng add for bug
+*      client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
+*      client->_bind_clear( `MT_COLUMN_CONFIG` ).                     "feng add for bug
       CLEAR ms_draft-s_preview-tab.
     ENDIF.
 
@@ -397,7 +397,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
                   )->get_parent(
                  ).
 
-      DATA(lt_fields) = z2ui5_cl_util=>rtti_get_t_attri_by_struc( <tab> ).
+      DATA(lt_fields) = z2ui5_cl_util=>rtti_get_t_attri_by_any( <tab> ).
 
       DATA(lo_columns) = tab->ui_columns( ).
       LOOP AT lt_fields INTO DATA(lv_field) FROM 1.
@@ -459,8 +459,8 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     ASSIGN ms_draft-s_preview-tab_backup->* TO <tab2>.
     <tab2> = <tab>.
 
-    client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
-    client->_bind_clear( `MT_COLUMN_CONFIG` ).
+*    client->_bind_clear( `MS_DRAFT-S_PREVIEW-TAB->*` ).
+*    client->_bind_clear( `MT_COLUMN_CONFIG` ).
     preview_view( ).
 
     ms_draft-s_preview-t_filter = z2ui5_cl_util=>filter_get_multi_by_data( <tab> ).
