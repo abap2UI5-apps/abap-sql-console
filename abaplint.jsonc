@@ -15,6 +15,11 @@
       "url": "https://github.com/abap2UI5/abap2UI5",
       "folder": "/abap2UI5",
       "files": "/src/**/*.*"
+    },
+   {
+      "url": "https://github.com/abap2UI5-apps-addons/custom-controls",
+      "folder": "/abap2UI5",
+      "files": "/src/**/*.*"
     }
   ],
   "syntax": {
