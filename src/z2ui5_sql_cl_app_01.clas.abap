@@ -63,7 +63,7 @@ CLASS z2ui5_sql_cl_app_01 DEFINITION PUBLIC.
       BEGIN OF ms_draft,
         s_preview         TYPE ty_s_preview,
         sql_input         TYPE string,
-        sql_s_command     TYPE z2ui5_cl_util=>ty_s_sql_result,
+        sql_s_command     TYPE z2ui5_cl_util=>ty_s_filter_multi-s_sql,
         sql_max_rows      TYPE i,
         sql_cont_size     TYPE string,
         history_cont_size TYPE string,
@@ -198,14 +198,14 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     ENDIF.
     z2ui5_sql_cl_history_api=>db_create( VALUE #(
         sql_command = ms_draft-sql_input
-        tabname     = ms_draft-sql_s_command-table
+        tabname     = ms_draft-sql_s_command-tabname
         timestampl  = lr_hist->s_db-timestampl
         uuid = lr_hist->s_db-uuid
         counter     = lines( <tab> )
         result_data = z2ui5_cl_util=>xml_srtti_stringify( ls_preview ) ) ).
 
     lr_hist->s_db-sql_command = ms_draft-sql_input.
-    lr_hist->s_db-tabname = ms_draft-sql_s_command-table.
+    lr_hist->s_db-tabname = ms_draft-sql_s_command-tabname.
     lr_hist->s_db-counter = lines( <tab> ).
 
   ENDMETHOD.
@@ -478,7 +478,7 @@ CLASS Z2UI5_SQL_CL_APP_01 IMPLEMENTATION.
     FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
     ASSIGN ms_draft-s_preview-tab->* TO <tab>.
 
-    SELECT FROM (ms_draft-sql_s_command-table) FIELDS *
+    SELECT FROM (ms_draft-sql_s_command-tabname) FIELDS *
         INTO CORRESPONDING FIELDS OF TABLE @<tab>
         UP TO @ms_draft-sql_max_rows ROWS.
 
