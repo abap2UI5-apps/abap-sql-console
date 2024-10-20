@@ -15,6 +15,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 #### Required Projects:
 * S-RTTI
 * abap2UI5
+* [js-libraries](https://github.com/abap2UI5-addons/js-libraries)
 
 #### Credits
 * Logic for Query to ABAP SQL Translation used from [ZTOAD](https://github.com/marianfoo/ztoad), integrated by [choper725](https://github.com/choper725)
