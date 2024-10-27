@@ -80,8 +80,6 @@ class zcl_2ui5_native_sql_console_st definition
 
     data is_initialized type abap_bool.
 
-    data is_popup_interaction type abap_bool.
-
     data popup_clear_history_accepted type string.
 
     data main_view type zcl_2ui5_native_sql_console_st=>t_main_view.

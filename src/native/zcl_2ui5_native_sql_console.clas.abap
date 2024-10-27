@@ -6,19 +6,29 @@ class zcl_2ui5_native_sql_console definition
 
     interfaces: z2ui5_if_app.
 
+    types: begin of t_ui_interaction,
+             id type string,
+             ref type ref to object,
+           end of t_ui_interaction,
+           t_ui_interactions type hashed table of zcl_2ui5_native_sql_console=>t_ui_interaction with unique key id,
+           t_events type zcl_2ui5_native_sql_console=>t_ui_interactions,
+           t_popup_interactions type zcl_2ui5_native_sql_console=>t_ui_interactions.
+
     class-methods class_constructor.
 
     methods initialize.
 
-    methods set_popup_state.
-
-    methods handle_popup
+    methods handle_interaction
               raising
                 cx_static_check.
 
-    methods handle_event
-              raising
-                cx_static_check.
+    methods events
+              returning
+                value(r_val) type zcl_2ui5_native_sql_console=>t_events.
+
+    methods popup_interactions
+              returning
+                value(r_val) type zcl_2ui5_native_sql_console=>t_popup_interactions.
 
     data a_state type ref to zcl_2ui5_native_sql_console_st.
 
@@ -53,17 +63,7 @@ class zcl_2ui5_native_sql_console implementation.
 
       else.
 
-        me->set_popup_state( ).
-
-        if me->a_state->is_popup_interaction eq abap_true.
-
-          me->handle_popup( ).
-
-        else.
-
-          me->handle_event( ).
-
-        endif.
+        me->handle_interaction( ).
 
       endif.
 
@@ -77,11 +77,9 @@ class zcl_2ui5_native_sql_console implementation.
 
     endtry.
 
-    "TODO: consider merging event and popup interactions into interface UI_INTERACTION
     "TODO: refactor state vars
 
     "TODO: add tests
-
     "TODO: add association mappings to join
     "TODO: clearly show nulls
     "TODO: fix ctrl + C (use another table?)
@@ -113,27 +111,25 @@ class zcl_2ui5_native_sql_console implementation.
     me->a_state->is_initialized = abap_true.
 
   endmethod.
-  method set_popup_state.
+  method handle_interaction.
 
-    me->a_state->is_popup_interaction = xsdbool( me->a_ui5_client->get( )-check_on_navigated eq abap_true ).
+    if me->a_ui5_client->get( )-check_on_navigated eq abap_true.
 
-  endmethod.
-  method handle_popup.
+      data(class_name) = cl_abap_classdescr=>get_class_name( me->a_ui5_client->get_app( me->a_ui5_client->get( )-s_draft-id_prev_app ) ).
 
-    types: begin of popup,
-             class type abap_abstypename,
-             ref type ref to popup_interaction,
-           end of popup,
-           popups type hashed table of popup with unique key class.
+      read table me->popup_interactions( ) with key id = class_name into data(popup_interaction) transporting ref.
 
-    data(popups) = value popups( ( class = `\CLASS=Z2UI5_CL_POP_TO_CONFIRM`
-                                   ref = new clear_history_interaction( ) )
-                                 ( class = `\CLASS=Z2UI5_CL_POP_ERROR`
-                                   ref = new error_acknowledged_interaction( ) ) ).
+      cast ui_interaction( popup_interaction-ref )->handle( me->a_ui5_client ).
 
-    data(class_name) = cl_abap_classdescr=>get_class_name( me->a_ui5_client->get_app( me->a_ui5_client->get( )-s_draft-id_prev_app ) ).
+    else.
 
-    popups[ class = class_name ]-ref->handle( me->a_ui5_client ).
+      data(event_name) = me->a_ui5_client->get( )-event.
+
+      read table me->events( ) with key id = event_name into data(event) transporting ref.
+
+      cast ui_interaction( event-ref )->handle( me->a_ui5_client ).
+
+    endif.
 
     me->a_state->main_view-history_tab = value #( let aux = me->a_state->main_view-history_tab
                                                       user_tz = cl_abap_context_info=>get_user_time_zone( ) in
@@ -148,44 +144,30 @@ class zcl_2ui5_native_sql_console implementation.
                                                              created_at = |{ <e>-created_at timestamp = user timezone = user_tz }| ) ) ).
 
   endmethod.
-  method handle_event.
+  method events.
 
-    types: begin of event,
-             name type string,
-             ref type ref to event,
-           end of event,
-           events type hashed table of event with unique key name.
+    r_val = value #( ( id = 'START'
+                       ref = new on_start( ) )
+                     ( id = 'RUN'
+                       ref = new on_run( ) )
+                     ( id = 'LOAD_HISTORY_ITEM'
+                       ref = new on_load_history_item( ) )
+                     ( id = 'SELECT_FULL_HISTORY'
+                       ref = new on_select_all_history_items( ) )
+                     ( id = 'DESELECT_FULL_HISTORY'
+                       ref = new on_deselect_all_history_items( ) )
+                     ( id = 'DELETE_SELECTED_HISTORY'
+                       ref = new on_delete_history_items( ) )
+                     ( id = 'RESULTS_WIDE_FILTER'
+                       ref = new on_wide_filtering( ) ) ).
 
-    data(events) = value events( ( name = 'START'
-                                   ref = new on_start( ) )
-                                 ( name = 'RUN'
-                                   ref = new on_run( ) )
-                                 ( name = 'LOAD_HISTORY_ITEM'
-                                   ref = new on_load_history_item( ) )
-                                 ( name = 'SELECT_FULL_HISTORY'
-                                   ref = new on_select_all_history_items( ) )
-                                 ( name = 'DESELECT_FULL_HISTORY'
-                                   ref = new on_deselect_all_history_items( ) )
-                                 ( name = 'DELETE_SELECTED_HISTORY'
-                                   ref = new on_delete_history_items( ) )
-                                 ( name = 'RESULTS_WIDE_FILTER'
-                                   ref = new on_wide_filtering( ) ) ).
+  endmethod.
+  method popup_interactions.
 
-    data(event_name) = me->a_ui5_client->get( )-event.
-
-    events[ name = event_name ]-ref->handle( me->a_ui5_client ).
-
-    me->a_state->main_view-history_tab = value #( let aux = me->a_state->main_view-history_tab
-                                                      user_tz = cl_abap_context_info=>get_user_time_zone( ) in
-                                                  for <e> in new history( )->get_sbar_data_for_current_user( )
-                                                  let status = cond #( when <e>-id eq me->a_state->main_view-history_successfully_added
-                                                                       then `Success`
-                                                                       else `None` ) in ##NO_TEXT
-                                                  ( value #( base value #( aux[ key by_key
-                                                                                id = <e>-id ] default corresponding #( <e> ) )
-                                                             highlight = status
-                                                             infostate = status
-                                                             created_at = |{ <e>-created_at timestamp = user timezone = user_tz }| ) ) ).
+    r_val = value #( ( id = `\CLASS=Z2UI5_CL_POP_TO_CONFIRM`
+                       ref = new clear_history_interaction( ) )
+                     ( id = `\CLASS=Z2UI5_CL_POP_ERROR`
+                       ref = new error_acknowledged_interaction( ) ) ).
 
   endmethod.
 

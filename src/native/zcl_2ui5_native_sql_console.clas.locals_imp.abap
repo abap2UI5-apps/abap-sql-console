@@ -1,6 +1,13 @@
 *"* use this source file for the definition and implementation of
 *"* local helper classes, interface definitions and type
 *"* declarations
+class implementation_error definition
+                           inheriting from cx_no_check
+                           create public ##CLASS_FINAL.
+
+  public section.
+
+endclass.
 class srtti_processor definition
                       create public ##CLASS_FINAL.
 
@@ -17,8 +24,6 @@ class srtti_processor definition
                 i_serialized type xstring
               returning
                 value(r_val) type ref to data.
-
-  protected section.
 
 endclass.
 class history definition
@@ -133,13 +138,20 @@ class data_result_view definition
     data a_parser type ref to z2ui5_cl_xml_view.
 
 endclass.
-interface event.
+interface ui_interaction.
 
   methods handle
             importing
               i_ui5_client type ref to z2ui5_if_client
             raising
               cx_static_check.
+
+endinterface.
+interface event.
+
+  interfaces: ui_interaction.
+
+  aliases: handle for ui_interaction~handle.
 
 endinterface.
 class on_start definition
@@ -149,8 +161,6 @@ class on_start definition
 
     interfaces: event.
 
-  protected section.
-
 endclass.
 class on_run definition
              create public ##CLASS_FINAL.
@@ -158,8 +168,6 @@ class on_run definition
   public section.
 
     interfaces: event.
-
-  protected section.
 
 endclass.
 class on_delete_history_items definition
@@ -169,8 +177,6 @@ class on_delete_history_items definition
 
     interfaces: event.
 
-  protected section.
-
 endclass.
 class on_load_history_item definition
                            create public ##CLASS_FINAL.
@@ -178,8 +184,6 @@ class on_load_history_item definition
   public section.
 
     interfaces: event.
-
-  protected section.
 
 endclass.
 class on_select_all_history_items definition
@@ -189,8 +193,6 @@ class on_select_all_history_items definition
 
     interfaces: event.
 
-  protected section.
-
 endclass.
 class on_deselect_all_history_items definition
                                     create public ##CLASS_FINAL.
@@ -198,8 +200,6 @@ class on_deselect_all_history_items definition
   public section.
 
     interfaces: event.
-
-  protected section.
 
 endclass.
 class on_wide_filtering definition
@@ -209,16 +209,12 @@ class on_wide_filtering definition
 
     interfaces: event.
 
-  protected section.
-
 endclass.
 interface popup_interaction.
 
-  methods handle
-            importing
-              i_ui5_client type ref to z2ui5_if_client
-            raising
-              cx_static_check.
+  interfaces: ui_interaction.
+
+  aliases: handle for ui_interaction~handle.
 
 endinterface.
 class clear_history_interaction definition
@@ -716,18 +712,22 @@ class clear_history_interaction implementation.
 
   method popup_interaction~handle.
 
-    data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
-
     me->downcasted_ref = cast #( i_ui5_client->get_app( i_ui5_client->get( )-s_draft-id_prev_app ) ).
 
-    data(test) = me->downcasted_ref->z2ui5_if_app~id_app. "
+    if i_ui5_client->get( )-event eq 'z2ui5_cl_pop_to_confirm_confirmed'.
 
-    new history( )->delete_for_current_user( value #( for <e> in filter #( state->main_view-history_tab using key by_sel where selected eq abap_true )
-                                                      ( <e>-id ) ) ).
+      data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    i_ui5_client->view_model_update( ).
+      i_ui5_client->get( ).
 
-    i_ui5_client->message_toast_display( 'All entries succesfully deleted from database'(014) ).
+      new history( )->delete_for_current_user( value #( for <e> in filter #( state->main_view-history_tab using key by_sel where selected eq abap_true )
+                                                        ( <e>-id ) ) ).
+
+      i_ui5_client->view_model_update( ).
+
+      i_ui5_client->message_toast_display( 'All entries succesfully deleted from database'(014) ).
+
+    endif.
 
   endmethod.
 
