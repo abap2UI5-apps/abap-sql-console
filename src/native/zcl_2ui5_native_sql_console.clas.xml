@@ -38,12 +38,6 @@
     </item>
     <item>
      <ID>I</ID>
-     <KEY>005</KEY>
-     <ENTRY>Filter</ENTRY>
-     <LENGTH>16</LENGTH>
-    </item>
-    <item>
-     <ID>I</ID>
      <KEY>006</KEY>
      <ENTRY>Query History</ENTRY>
      <LENGTH>23</LENGTH>
@@ -57,7 +51,7 @@
     <item>
      <ID>I</ID>
      <KEY>008</KEY>
-     <ENTRY>Filter any column by exact match</ENTRY>
+     <ENTRY>Filter any column on enter</ENTRY>
      <LENGTH>58</LENGTH>
     </item>
     <item>

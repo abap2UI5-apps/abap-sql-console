@@ -26,11 +26,11 @@ class zcl_2ui5_native_sql_console definition
               returning
                 value(r_val) type zcl_2ui5_native_sql_console=>t_events.
 
-    methods popup_interactions
+    methods popup_dialogs
               returning
                 value(r_val) type zcl_2ui5_native_sql_console=>t_popup_interactions.
 
-    data a_state type ref to zcl_2ui5_native_sql_console_st.
+    data state type ref to zcl_2ui5_native_sql_console_st.
 
   protected section.
 
@@ -49,7 +49,7 @@ class zcl_2ui5_native_sql_console implementation.
 
     me->a_ui5_client = client.
 
-    me->a_state = zcl_2ui5_native_sql_console_st=>instance( me->a_state ).
+    me->state = zcl_2ui5_native_sql_console_st=>instance( me->state ).
 
     try.
 
@@ -57,7 +57,7 @@ class zcl_2ui5_native_sql_console implementation.
 
       t->start( ).
 
-      if not ( me->a_state->is_initialized eq abap_true ).
+      if not ( me->state->is_initialized eq abap_true ).
 
         me->initialize( ).
 
@@ -77,8 +77,6 @@ class zcl_2ui5_native_sql_console implementation.
 
     endtry.
 
-    "TODO: refactor state vars
-
     "TODO: add tests
     "TODO: add association mappings to join
     "TODO: clearly show nulls
@@ -94,79 +92,81 @@ class zcl_2ui5_native_sql_console implementation.
       importing
         dbuser = standard_connection_schema.
 
-    me->a_ui5_client->view_display( z2ui5_cl_xml_view=>factory( )->_z2ui5( )->timer( me->a_ui5_client->_event( `START` )
+    me->a_ui5_client->view_display( z2ui5_cl_xml_view=>factory( )->_z2ui5( )->timer( me->a_ui5_client->_event( on_start=>event_name( ) )
                                                                            )->_generic( ns = `html` ##NO_TEXT
                                                                                         name = `script`
                                                                            )->_cc_plain_xml( z2ui5_cl_cc_spreadsheet=>get_js( )
                                                                 )->stringify( ) ).
 
-    me->a_state->main_view = value #( sql_statement = |select *{ cl_abap_char_utilities=>cr_lf }  from "{ standard_connection_schema }"."T100"{ cl_abap_char_utilities=>cr_lf }  limit 100;| ##NO_TEXT
-                                      history_cont_size = `30%`
-                                      sql_cont_size = `auto`
-                                      sql_max_rows = 100
-                                      app_width_limited = abap_true ).
+    me->state->page = value #( app_width_limited = abap_true ).
 
-    me->a_state->result_view = value #( cont_size = `auto` ) ##NO_TEXT.
+    me->state->sql_editor_pane = value #( statement = |select *{ cl_abap_char_utilities=>cr_lf }  from "{ standard_connection_schema }"."T100"{ cl_abap_char_utilities=>cr_lf }  limit 100;| ##NO_TEXT
+                                          layout_size = `auto`
+                                          fallback_max_rows = 100 ).
 
-    me->a_state->is_initialized = abap_true.
+    me->state->history_pane = value #( layout_size = `30%` ).
+
+    me->state->results_pane = value #( layout_size = `auto` ) ##NO_TEXT.
+
+    me->state->is_initialized = abap_true.
 
   endmethod.
   method handle_interaction.
 
-    if me->a_ui5_client->get( )-check_on_navigated eq abap_true.
+    try.
 
-      data(class_name) = cl_abap_classdescr=>get_class_name( me->a_ui5_client->get_app( me->a_ui5_client->get( )-s_draft-id_prev_app ) ).
-
-      read table me->popup_interactions( ) with key id = class_name into data(popup_interaction) transporting ref.
-
-      cast ui_interaction( popup_interaction-ref )->handle( me->a_ui5_client ).
-
-    else.
-
-      data(event_name) = me->a_ui5_client->get( )-event.
+      data(event_name) = cond #( when me->state->event_awaiting_response is not initial
+                                 then me->state->event_awaiting_response
+                                 else me->a_ui5_client->get( )-event ).
 
       read table me->events( ) with key id = event_name into data(event) transporting ref.
 
-      cast ui_interaction( event-ref )->handle( me->a_ui5_client ).
+      cast event( event-ref )->handle( me->a_ui5_client ).
 
-    endif.
+    catch cx_sy_itab_line_not_found.
 
-    me->a_state->main_view-history_tab = value #( let aux = me->a_state->main_view-history_tab
-                                                      user_tz = cl_abap_context_info=>get_user_time_zone( ) in
-                                                  for <e> in new history( )->get_sbar_data_for_current_user( )
-                                                  let status = cond #( when <e>-id eq me->a_state->main_view-history_successfully_added
-                                                                       then `Success`
-                                                                       else `None` ) in ##NO_TEXT
-                                                  ( value #( base value #( aux[ key by_key
-                                                                                id = <e>-id ] default corresponding #( <e> ) )
-                                                             highlight = status
-                                                             infostate = status
-                                                             created_at = |{ <e>-created_at timestamp = user timezone = user_tz }| ) ) ).
+      data(class_name) = cl_abap_classdescr=>get_class_name( me->a_ui5_client->get_app( me->a_ui5_client->get( )-s_draft-id_prev_app ) ).
+
+      read table me->popup_dialogs( ) with key id = class_name into data(popup_dialog) transporting ref.
+
+      cast popup_dialog( popup_dialog-ref )->handle( me->a_ui5_client ).
+
+    endtry.
+
+    me->state->history_pane-items = value #( let aux = me->state->history_pane-items
+                                                 user_tz = cl_abap_context_info=>get_user_time_zone( ) in
+                                             for <e> in new history( )->get_sbar_data_for_current_user( )
+                                             let status = cond #( when <e>-id eq me->state->history_pane-last_item_successfully_added
+                                                                  then `Success`
+                                                                  else `None` ) in ##NO_TEXT
+                                             ( value #( base value #( aux[ key by_key
+                                                                           id = <e>-id ] default corresponding #( <e> ) )
+                                                        highlight = status
+                                                        infostate = status
+                                                        created_at = |{ <e>-created_at timestamp = user timezone = user_tz }| ) ) ).
 
   endmethod.
   method events.
 
-    r_val = value #( ( id = 'START'
+    r_val = value #( ( id = on_start=>event_name( )
                        ref = new on_start( ) )
-                     ( id = 'RUN'
+                     ( id = on_run=>event_name( )
                        ref = new on_run( ) )
-                     ( id = 'LOAD_HISTORY_ITEM'
+                     ( id = on_load_history_item=>event_name( )
                        ref = new on_load_history_item( ) )
-                     ( id = 'SELECT_FULL_HISTORY'
+                     ( id = on_select_all_history_items=>event_name( )
                        ref = new on_select_all_history_items( ) )
-                     ( id = 'DESELECT_FULL_HISTORY'
+                     ( id = on_deselect_all_history_items=>event_name( )
                        ref = new on_deselect_all_history_items( ) )
-                     ( id = 'DELETE_SELECTED_HISTORY'
+                     ( id = on_delete_history_items=>event_name( )
                        ref = new on_delete_history_items( ) )
-                     ( id = 'RESULTS_WIDE_FILTER'
+                     ( id = on_wide_filtering=>event_name( )
                        ref = new on_wide_filtering( ) ) ).
 
   endmethod.
-  method popup_interactions.
+  method popup_dialogs.
 
-    r_val = value #( ( id = `\CLASS=Z2UI5_CL_POP_TO_CONFIRM`
-                       ref = new clear_history_interaction( ) )
-                     ( id = `\CLASS=Z2UI5_CL_POP_ERROR`
+    r_val = value #( ( id = error_acknowledged_interaction=>class_name( )
                        ref = new error_acknowledged_interaction( ) ) ).
 
   endmethod.

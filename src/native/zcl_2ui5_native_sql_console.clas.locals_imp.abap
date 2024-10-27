@@ -1,13 +1,6 @@
 *"* use this source file for the definition and implementation of
 *"* local helper classes, interface definitions and type
 *"* declarations
-class implementation_error definition
-                           inheriting from cx_no_check
-                           create public ##CLASS_FINAL.
-
-  public section.
-
-endclass.
 class srtti_processor definition
                       create public ##CLASS_FINAL.
 
@@ -39,29 +32,29 @@ class history definition
              results type ref to data,
            end of t_input_entry.
 
-    types: begin of t_sidebar_entry,
+    types: begin of t_history_pane_item,
              id type z2ui5_nsql_c_hst-id,
              natural_id type z2ui5_nsql_c_hst-natural_id,
              created_at type z2ui5_nsql_c_hst-created_at,
              sql_statement type z2ui5_nsql_c_hst-sql_statement,
              rows_no type z2ui5_nsql_c_hst-rows_no,
-           end of t_sidebar_entry,
-           t_sidebar type standard table of history=>t_sidebar_entry with empty key.
+           end of t_history_pane_item,
+           t_history_pane_items type standard table of history=>t_history_pane_item with empty key.
 
     types: begin of t_results_entry,
              id type z2ui5_nsql_c_hst-id,
-             results type ref to data,
+             data type ref to data,
            end of t_results_entry.
 
     methods get_sbar_data_for_current_user
               returning
-                value(r_val) type history=>t_sidebar.
+                value(r_val) type history=>t_history_pane_items.
 
     methods get_sbar_data_for_user
               importing
                 i_user type xubname
               returning
-                value(r_val) type history=>t_sidebar.
+                value(r_val) type history=>t_history_pane_items.
 
     methods get_rslt_data_for_current_user
               importing
@@ -92,10 +85,6 @@ class history definition
     methods delete_for_current_user
               importing
                 i_entries type history=>t_delete_entries.
-
-  protected section.
-
-    types: t_entry type z2ui5_nsql_c_hst.
 
 endclass.
 class main_view definition
@@ -146,12 +135,17 @@ interface ui_interaction.
             raising
               cx_static_check.
 
+  class-methods id
+                  returning
+                    value(r_Val) type string.
+
 endinterface.
 interface event.
 
   interfaces: ui_interaction.
 
-  aliases: handle for ui_interaction~handle.
+  aliases: handle for ui_interaction~handle,
+           event_name for ui_interaction~id.
 
 endinterface.
 class on_start definition
@@ -161,6 +155,8 @@ class on_start definition
 
     interfaces: event.
 
+    aliases: event_name for event~event_name.
+
 endclass.
 class on_run definition
              create public ##CLASS_FINAL.
@@ -168,6 +164,8 @@ class on_run definition
   public section.
 
     interfaces: event.
+
+    aliases: event_name for event~event_name.
 
 endclass.
 class on_delete_history_items definition
@@ -177,6 +175,8 @@ class on_delete_history_items definition
 
     interfaces: event.
 
+    aliases: event_name for event~event_name.
+
 endclass.
 class on_load_history_item definition
                            create public ##CLASS_FINAL.
@@ -184,6 +184,8 @@ class on_load_history_item definition
   public section.
 
     interfaces: event.
+
+    aliases: event_name for event~event_name.
 
 endclass.
 class on_select_all_history_items definition
@@ -193,6 +195,8 @@ class on_select_all_history_items definition
 
     interfaces: event.
 
+    aliases: event_name for event~event_name.
+
 endclass.
 class on_deselect_all_history_items definition
                                     create public ##CLASS_FINAL.
@@ -200,6 +204,8 @@ class on_deselect_all_history_items definition
   public section.
 
     interfaces: event.
+
+    aliases: event_name for event~event_name.
 
 endclass.
 class on_wide_filtering definition
@@ -209,36 +215,47 @@ class on_wide_filtering definition
 
     interfaces: event.
 
+    aliases: event_name for event~event_name.
+
 endclass.
-interface popup_interaction.
-
-  interfaces: ui_interaction.
-
-  aliases: handle for ui_interaction~handle.
-
-endinterface.
-class clear_history_interaction definition
-                                create public ##CLASS_FINAL.
+class user_approval definition
+                    create public ##CLASS_FINAL.
 
   public section.
 
-    interfaces: popup_interaction.
+    methods constructor
+              importing
+                i_ui5_client type ref to z2ui5_if_client.
+
+    methods is_confirmed
+              returning
+                value(r_val) type abap_bool.
 
   protected section.
 
-    data downcasted_ref type ref to z2ui5_cl_pop_to_confirm.
+    data a_confirmation_popup type ref to z2ui5_cl_pop_to_confirm.
 
 endclass.
+interface popup_dialog.
+
+  interfaces: ui_interaction.
+
+  aliases: handle for ui_interaction~handle,
+           class_name for ui_interaction~id.
+
+endinterface.
 class error_acknowledged_interaction definition
                                      create public ##CLASS_FINAL.
 
   public section.
 
-    interfaces: popup_interaction.
+    interfaces: popup_dialog.
+
+    aliases class_name for popup_dialog~class_name.
 
   protected section.
 
-    data downcasted_ref type ref to z2ui5_cl_pop_error ##NEEDED. "as a safeguard that we are actually handling the intended popup
+    data a_downcasted_ref type ref to z2ui5_cl_pop_error ##NEEDED. "as a safeguard that we are actually handling the intended popup
 
 endclass.
 
@@ -319,7 +336,7 @@ class history implementation.
       into @data(data).
 
     r_val = value #( base corresponding #( data )
-                     results = new srtti_processor( )->deserialize( data-serialized_results ) ).
+                     data = new srtti_processor( )->deserialize( data-serialized_results ) ).
 
   endmethod.
   method insert_new.
@@ -332,12 +349,12 @@ class history implementation.
 
     assign i_entry-results->* to <results>.
 
-    data(new_entry) = value me->t_entry( base corresponding #( i_entry )
-                                         id = cl_system_uuid=>if_system_uuid_rfc4122_static~create_uuid_x16_by_version( 4 )
-                                         created_at = utclong_current( )
-                                         created_by = cl_abap_syst=>get_user_name( )
-                                         rows_no = lines( <results> )
-                                         serialized_results = new srtti_processor( )->serialize( <results> ) ).
+    data(new_entry) = value z2ui5_nsql_c_hst( base corresponding #( i_entry )
+                                              id = cl_system_uuid=>if_system_uuid_rfc4122_static~create_uuid_x16_by_version( 4 )
+                                              created_at = utclong_current( )
+                                              created_by = cl_abap_syst=>get_user_name( )
+                                              rows_no = lines( <results> )
+                                              serialized_results = new srtti_processor( )->serialize( <results> ) ).
 
     insert into z2ui5_nsql_c_hst
       values @new_entry.
@@ -401,7 +418,7 @@ class main_view implementation.
 
     me->a_parser = z2ui5_cl_xml_view=>factory( ).
 
-    data(shell) = me->a_parser->shell( appwidthlimited = me->a_ui5_client->_bind_edit( i_state->main_view-app_width_limited ) ).
+    data(shell) = me->a_parser->shell( appwidthlimited = me->a_ui5_client->_bind_edit( i_state->page-app_width_limited ) ).
 
       data(page) = shell->page( title = 'Native SQL Console'(001) ).
 
@@ -410,11 +427,11 @@ class main_view implementation.
           data(overflow_toolbar) = header_content->overflow_toolbar( ).
 
             overflow_toolbar->label( 'Fallback Limit'(002)
-                           )->input( width = `15%` value = me->a_ui5_client->_bind_edit( i_state->main_view-sql_max_rows )
-                           )->button( text = 'Run'(003) press = me->a_ui5_client->_event( `RUN` ) type = `Emphasized` ##NO_TEXT
+                           )->input( width = `15%` value = me->a_ui5_client->_bind_edit( i_state->sql_editor_pane-fallback_max_rows )
+                           )->button( text = 'Run'(003) press = me->a_ui5_client->_event( on_run=>event_name( ) ) type = `Emphasized` ##NO_TEXT
                            )->toolbar_spacer(
                            )->label( text = `Shell` ##NO_TEXT
-                           )->switch( state = me->a_ui5_client->_bind_edit( i_state->main_view-app_width_limited )
+                           )->switch( state = me->a_ui5_client->_bind_edit( i_state->page-app_width_limited )
                            )->link( text = 'Project on GitHub'(004) target = '_blank' href = 'https://github.com/abap2ui5-apps/abap-sql-console' ).
 
         data(flex_box) = page->flex_box( height = `100%` fitcontainer = abap_true rendertype = `Bare` ) ##NO_TEXT.
@@ -430,20 +447,18 @@ class main_view implementation.
 
                   data(esp_layout_data) = editor_split_pane->layout_data( ns = `layout` )  ##NO_TEXT.
 
-                    esp_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->main_view-sql_cont_size ) ).
+                    esp_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->sql_editor_pane-layout_size ) ).
 
-                  editor_split_pane->button( text = 'Filter'(005) press = me->a_ui5_client->_event( `PREVIEW_FILTER` ) icon = `sap-icon://filter` ) ##NO_TEXT.
-
-                  editor_split_pane->code_editor( type = `sql` value = me->a_ui5_client->_bind_edit( i_state->main_view-sql_statement ) ).
+                  editor_split_pane->code_editor( type = `sql` value = me->a_ui5_client->_bind_edit( i_state->sql_editor_pane-statement ) ).
 
                 "History Pane
                 data(history_split_pane) = horizontal_pane_container->split_pane( requiredparentwidth = `400` ).
 
                   data(h_layout_data) = history_split_pane->layout_data( ns = `layout` ) ##NO_TEXT.
 
-                    h_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->main_view-history_cont_size ) ).
+                    h_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->history_pane-layout_size ) ).
 
-                  data(h_list) = history_split_pane->list( items = me->a_ui5_client->_bind_edit( i_state->main_view-history_tab )
+                  data(h_list) = history_split_pane->list( items = me->a_ui5_client->_bind_edit( i_state->history_pane-items )
                                                            mode = `MultiSelect`
                                                            sticky = `ColumnHeaders,HeaderToolbar` ).
 
@@ -455,11 +470,11 @@ class main_view implementation.
 
                         hlt_overflow_toolbar->toolbar_spacer( ).
 
-                        hlt_overflow_toolbar->button( press = me->a_ui5_client->_event( `SELECT_FULL_HISTORY` ) icon = `sap-icon://multiselect-all` ) ##NO_TEXT.
+                        hlt_overflow_toolbar->button( press = me->a_ui5_client->_event( on_select_all_history_items=>event_name( ) ) icon = `sap-icon://multiselect-all` ) ##NO_TEXT.
 
-                        hlt_overflow_toolbar->button( press = me->a_ui5_client->_event( `DESELECT_FULL_HISTORY` ) icon = `sap-icon://multiselect-none` ) ##NO_TEXT.
+                        hlt_overflow_toolbar->button( press = me->a_ui5_client->_event( on_deselect_all_history_items=>event_name( ) ) icon = `sap-icon://multiselect-none` ) ##NO_TEXT.
 
-                        hlt_overflow_toolbar->button( text = 'Delete'(007) press = me->a_ui5_client->_event( `DELETE_SELECTED_HISTORY` ) icon = `sap-icon://delete` ) ##NO_TEXT.
+                        hlt_overflow_toolbar->button( text = 'Delete'(007) press = me->a_ui5_client->_event( on_delete_history_items=>event_name( ) ) icon = `sap-icon://delete` ) ##NO_TEXT.
 
                     h_list->standard_list_item( type = `Navigation` ##NO_TEXT
                                                 title = '{NATURAL_ID} - {CREATED_AT}'
@@ -467,7 +482,7 @@ class main_view implementation.
                                                 info = '{ROWS_NO}'
                                                 infostate = '{INFOSTATE}'
                                                 highlight = '{HIGHLIGHT}'
-                                                press = me->a_ui5_client->_event( val = 'LOAD_HISTORY_ITEM'
+                                                press = me->a_ui5_client->_event( val = on_load_history_item=>event_name( )
                                                                                   t_arg = value #( ( `${ID}` ) ) )
                                                 selected = `{SELECTED}` ).
 
@@ -476,7 +491,7 @@ class main_view implementation.
 
                 data(rsp_layout_data) = results_split_pane->layout_data( ns = `layout` )  ##NO_TEXT.
 
-                  rsp_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->result_view-cont_size ) ).
+                  rsp_layout_data->splitter_layout_data( size = me->a_ui5_client->_bind_edit( i_state->results_pane-layout_size ) ).
 
                 results_split_pane->vbox( id = `preview` fitcontainer = abap_true direction = `Row` )  ##NO_TEXT.
 
@@ -501,7 +516,7 @@ class data_result_view implementation.
 
     me->a_parser = z2ui5_cl_xml_view=>factory( ).
 
-    assign i_state->result_view-output_data->* to <data>.
+    assign i_state->results_pane-output_data->* to <data>.
 
     if <data> is assigned.
 
@@ -523,21 +538,21 @@ class data_result_view implementation.
 
           data(te_overflow_toolbar) = table_extension->overflow_toolbar( width = `100%` ).
 
-            te_overflow_toolbar->title( me->a_ui5_client->_bind( i_state->result_view-title ) ).
+            te_overflow_toolbar->title( me->a_ui5_client->_bind( i_state->results_pane-title ) ).
 
             te_overflow_toolbar->toolbar_spacer( ).
 
             te_overflow_toolbar->input( width = `50%`
-                                        value = me->a_ui5_client->_bind_edit( i_state->result_view-search_field )
-                                        description = 'Filter any column by exact match'(008)
-                                        submit = me->a_ui5_client->_event( `RESULTS_WIDE_FILTER` ) ).
+                                        value = me->a_ui5_client->_bind_edit( i_state->results_pane-wide_filter_string )
+                                        description = 'Filter any column on enter'(008)
+                                        submit = me->a_ui5_client->_event( on_wide_filtering=>event_name( ) ) ).
 
             te_overflow_toolbar->toolbar_spacer( ).
 
             te_overflow_toolbar->_z2ui5( )->spreadsheet_export( tableid = `previewTab`
                                                                 icon = 'sap-icon://excel-attachment'
                                                                 type = `Emphasized` ##NO_TEXT
-                                                                columnconfig = me->a_ui5_client->_bind( val = i_state->result_view-column_config
+                                                                columnconfig = me->a_ui5_client->_bind( val = i_state->results_pane-column_config
                                                                                                         custom_filter = new z2ui5_cl_cc_spreadsheet( )
                                                                                                         custom_mapper = z2ui5_cl_ajson_mapping=>create_lower_case( ) ) ).
 
@@ -589,6 +604,11 @@ class on_start implementation.
                    i_ui5_client = i_ui5_client )->set_for_display( ).
 
   endmethod.
+  method ui_interaction~id.
+
+    r_val = `START`.
+
+  endmethod.
 
 endclass.
 class on_run implementation.
@@ -601,19 +621,19 @@ class on_run implementation.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    state->main_view-sql_statement = cond #( when find( val = condense( state->main_view-sql_statement )
-                                                        sub = `select top` ##NO_TEXT
-                                                        case = abap_false ) eq -1
-                                                  and find( val = condense( state->main_view-sql_statement )
-                                                            pcre = ends_with_limit_clause ) eq -1
-                                             then |{ replace( val = state->main_view-sql_statement
-                                                              sub = `;`
-                                                              with = `` ) }{ cl_abap_char_utilities=>cr_lf }  limit { state->main_view-sql_max_rows };|
-                                             else state->main_view-sql_statement ).
+    state->sql_editor_pane-statement = cond #( when find( val = condense( state->sql_editor_pane-statement )
+                                                          sub = `select top` ##NO_TEXT
+                                                          case = abap_false ) eq -1
+                                                    and find( val = condense( state->sql_editor_pane-statement )
+                                                              pcre = ends_with_limit_clause ) eq -1
+                                               then |{ replace( val = state->sql_editor_pane-statement
+                                                                sub = `;`
+                                                                with = `` ) }{ cl_abap_char_utilities=>cr_lf }  limit { state->sql_editor_pane-fallback_max_rows };|
+                                               else state->sql_editor_pane-statement ).
 
     data(statement) = new cl_sql_statement( ).
 
-    data(result) = statement->execute_query( state->main_view-sql_statement ).
+    data(result) = statement->execute_query( state->sql_editor_pane-statement ).
 
     data(result_metadata) = result->get_metadata( ).
 
@@ -623,52 +643,83 @@ class on_run implementation.
 
     data(table_type) = cl_abap_tabledescr=>get( line_type ).
 
-    create data state->result_view-db_data type handle table_type.
+    create data state->results_pane-db_data type handle table_type.
 
-    assign state->result_view-db_data->* to <table>.
+    assign state->results_pane-db_data->* to <table>.
 
-    result->set_param_table( state->result_view-db_data ).
+    result->set_param_table( state->results_pane-db_data ).
 
     result->next_package( ).
 
-    state->result_view = value #( base state->result_view
-                                  output_data = state->result_view-db_data
-                                  column_config = value #( for <e> in line_type->components
-                                                           ( label = <e>-name
-                                                             property = <e>-name
-                                                             type = `String` ) ) ##NO_TEXT
-                                  filters = z2ui5_cl_util=>filter_get_multi_by_data( <table> )
-                                  title = |{ 'Number of Rows:'(010) } { z2ui5_cl_util=>c_trim( lines( <table> ) ) }| ).
+    state->results_pane = value #( base state->results_pane
+                                   output_data = state->results_pane-db_data
+                                   column_config = value #( for <e> in line_type->components
+                                                            ( label = <e>-name
+                                                              property = <e>-name
+                                                              type = `String` ) ) ##NO_TEXT
+                                   filters = z2ui5_cl_util=>filter_get_multi_by_data( <table> )
+                                   title = |{ 'Number of Rows:'(010) } { z2ui5_cl_util=>c_trim( lines( <table> ) ) }| ).
 
     new data_result_view( i_state = state
                           i_ui5_client = i_ui5_client )->redraw( ).
 
     data(new_id) = new history( )->insert_new( value #( natural_id = value #( )
-                                                        sql_statement = state->main_view-sql_statement
-                                                        results = state->result_view-db_data ) ).
+                                                        sql_statement = state->sql_editor_pane-statement
+                                                        results = state->results_pane-db_data ) ).
 
-    state->main_view-history_successfully_added = new_id.
+    state->history_pane-last_item_successfully_added = new_id.
+
+  endmethod.
+  method ui_interaction~id.
+
+    r_val = `RUN`.
 
   endmethod.
 
 endclass.
 class on_delete_history_items implementation.
 
+  method ui_interaction~id.
+
+    r_val = `DELETE_SELECTED_HISTORY`.
+
+  endmethod.
   method event~handle.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    if state->main_view-history_tab is initial.
+    if state->event_awaiting_response eq me->event_name( ).
 
-      i_ui5_client->message_box_display( 'No history entries found.'(012) ).
+      state->event_awaiting_response = value #( ).
 
-    elseif filter #( state->main_view-history_tab using key by_sel where selected eq abap_true ) is initial.
+      if new user_approval( i_ui5_client )->is_confirmed( ).
 
-      i_ui5_client->message_box_display( 'No entries selected.'(015) ).
+        new history( )->delete_for_current_user( value #( for <e> in filter #( state->history_pane-items using key by_sel where selected eq abap_true )
+                                                          ( <e>-id ) ) ).
+
+        i_ui5_client->view_model_update( ).
+
+        i_ui5_client->message_toast_display( 'All entries succesfully deleted from database'(014) ).
+
+      endif.
 
     else.
 
-     state->popup_clear_history_accepted = i_ui5_client->nav_app_call( z2ui5_cl_pop_to_confirm=>factory( conv #( 'Delete selected history entries from database?'(013) ) ) ).
+      if state->history_pane-items is initial.
+
+        i_ui5_client->message_box_display( 'No history entries found.'(012) ).
+
+      elseif filter #( state->history_pane-items using key by_sel where selected eq abap_true ) is initial.
+
+        i_ui5_client->message_box_display( 'No entries selected.'(015) ).
+
+      else.
+
+        i_ui5_client->nav_app_call( z2ui5_cl_pop_to_confirm=>factory( conv #( 'Delete selected history entries from database?'(013) ) ) ).
+
+        state->event_awaiting_response = me->event_name( ).
+
+      endif.
 
     endif.
 
@@ -683,22 +734,22 @@ class on_load_history_item implementation.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    data(previous_result) = new history( )->get_rslt_data_for_current_user( state->main_view-history_tab[ key by_key
-                                                                                                          id = exact #( i_ui5_client->get_event_arg( 1 ) ) ]-id ).
+    data(previous_result) = new history( )->get_rslt_data_for_current_user( state->history_pane-items[ key by_key
+                                                                                                       id = exact #( i_ui5_client->get_event_arg( 1 ) ) ]-id ).
 
-    data(line_type) = cast cl_abap_structdescr( cast cl_abap_tabledescr( cl_abap_typedescr=>describe_by_data_ref( previous_result-results ) )->get_table_line_type( ) ).
+    data(line_type) = cast cl_abap_structdescr( cast cl_abap_tabledescr( cl_abap_typedescr=>describe_by_data_ref( previous_result-data ) )->get_table_line_type( ) ).
 
-    assign previous_result-results->* to <table>.
+    assign previous_result-data->* to <table>.
 
-    state->result_view = value #( base state->result_view
-                                  db_data = previous_result-results
-                                  output_data = previous_result-results
-                                  column_config = value #( for <e> in line_type->components
-                                                           ( label = <e>-name
-                                                             property = <e>-name
-                                                             type = `String` ) ) ##NO_TEXT
-                                  filters = z2ui5_cl_util=>filter_get_multi_by_data( <table> )
-                                  title = |{ 'Number of Rows:'(010) } { z2ui5_cl_util=>c_trim( lines( <table> ) ) }| ).
+    state->results_pane = value #( base state->results_pane
+                                   db_data = previous_result-data
+                                   output_data = previous_result-data
+                                   column_config = value #( for <e> in line_type->components
+                                                            ( label = <e>-name
+                                                              property = <e>-name
+                                                              type = `String` ) ) ##NO_TEXT
+                                   filters = z2ui5_cl_util=>filter_get_multi_by_data( <table> )
+                                   title = |{ 'Number of Rows:'(010) } { z2ui5_cl_util=>c_trim( lines( <table> ) ) }| ).
 
     new data_result_view( i_state = state
                           i_ui5_client = i_ui5_client )->redraw( ).
@@ -706,28 +757,23 @@ class on_load_history_item implementation.
     i_ui5_client->message_toast_display( 'History entry successfully loaded'(011) ).
 
   endmethod.
+  method ui_interaction~id.
+
+    r_val = `LOAD_HISTORY_ITEM`.
+
+  endmethod.
 
 endclass.
-class clear_history_interaction implementation.
+class user_approval implementation.
 
-  method popup_interaction~handle.
+  method constructor.
 
-    me->downcasted_ref = cast #( i_ui5_client->get_app( i_ui5_client->get( )-s_draft-id_prev_app ) ).
+    me->a_confirmation_popup = cast #( i_ui5_client->get_app( i_ui5_client->get( )-s_draft-id_prev_app ) ).
 
-    if i_ui5_client->get( )-event eq 'z2ui5_cl_pop_to_confirm_confirmed'.
+  endmethod.
+  method is_confirmed.
 
-      data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
-
-      i_ui5_client->get( ).
-
-      new history( )->delete_for_current_user( value #( for <e> in filter #( state->main_view-history_tab using key by_sel where selected eq abap_true )
-                                                        ( <e>-id ) ) ).
-
-      i_ui5_client->view_model_update( ).
-
-      i_ui5_client->message_toast_display( 'All entries succesfully deleted from database'(014) ).
-
-    endif.
+    r_val = me->a_confirmation_popup->result( ).
 
   endmethod.
 
@@ -738,12 +784,17 @@ class on_select_all_history_items implementation.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    state->main_view-history_tab = value #( let aux = state->main_view-history_tab in
-                                            for <e> in aux
-                                            ( value #( base <e>
-                                                       selected = abap_true ) ) ).
+    state->history_pane-items = value #( let aux = state->history_pane-items in
+                                         for <e> in aux
+                                         ( value #( base <e>
+                                                    selected = abap_true ) ) ).
 
     i_ui5_client->view_model_update( ).
+
+  endmethod.
+  method ui_interaction~id.
+
+    r_val = `SELECT_FULL_HISTORY`.
 
   endmethod.
 
@@ -754,23 +805,33 @@ class on_deselect_all_history_items implementation.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    state->main_view-history_tab = value #( let aux = state->main_view-history_tab in
-                                            for <e> in aux
-                                            ( value #( base <e>
-                                                       selected = abap_false ) ) ).
+    state->history_pane-items = value #( let aux = state->history_pane-items in
+                                         for <e> in aux
+                                         ( value #( base <e>
+                                                    selected = abap_false ) ) ).
 
     i_ui5_client->view_model_update( ).
+
+  endmethod.
+  method ui_interaction~id.
+
+    r_val = `DESELECT_FULL_HISTORY`.
 
   endmethod.
 
 endclass.
 class error_acknowledged_interaction implementation.
 
-  method popup_interaction~handle.
+  method ui_interaction~handle.
 
-    me->downcasted_ref = cast #( i_ui5_client->get_app( i_ui5_client->get( )-s_draft-id_prev_app ) ).
+    me->a_downcasted_ref = cast #( i_ui5_client->get_app( i_ui5_client->get( )-s_draft-id_prev_app ) ).
 
     return.
+
+  endmethod.
+  method ui_interaction~id.
+
+    r_val = `\CLASS=Z2UI5_CL_POP_ERROR`.
 
   endmethod.
 
@@ -784,29 +845,34 @@ class on_wide_filtering implementation.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    if state->result_view-search_field is not initial.
+    if state->results_pane-wide_filter_string is not initial.
 
-      assign state->result_view-db_data->* to <db_data>.
+      assign state->results_pane-db_data->* to <db_data>.
 
-      create data state->result_view-filtered_db_data like <db_data>.
+      create data state->results_pane-filtered_db_data like <db_data>.
 
-      assign state->result_view-filtered_db_data->* to <filtered_data>.
+      assign state->results_pane-filtered_db_data->* to <filtered_data>.
 
       <filtered_data> = <db_data>.
 
-      z2ui5_cl_util=>itab_filter_by_val( exporting val = state->result_view-search_field
+      z2ui5_cl_util=>itab_filter_by_val( exporting val = state->results_pane-wide_filter_string
                                          changing tab = <filtered_data> ).
 
-      state->result_view-output_data = state->result_view-filtered_db_data.
+      state->results_pane-output_data = state->results_pane-filtered_db_data.
 
     else.
 
-      state->result_view-output_data = state->result_view-db_data.
+      state->results_pane-output_data = state->results_pane-db_data.
 
     endif.
 
     new data_result_view( i_state = state
                           i_ui5_client = i_ui5_client )->redraw( ).
+
+  endmethod.
+  method ui_interaction~id.
+
+    r_val = `RESULTS_WIDE_FILTER`.
 
   endmethod.
 

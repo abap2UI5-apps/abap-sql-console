@@ -8,6 +8,35 @@ class zcl_2ui5_native_sql_console_st definition
 
     types t_self type ref to zcl_2ui5_native_sql_console_st.
 
+    types: begin of t_page,
+             app_width_limited type abap_bool,
+           end of t_page.
+
+    types: begin of t_sql_editor_pane,
+             statement type string,
+             fallback_max_rows type i,
+             layout_size type string,
+           end of t_sql_editor_pane.
+
+    types: begin of t_history_element,
+             id type z2ui5_nsql_c_hst-id,
+             natural_id type z2ui5_nsql_c_hst-natural_id,
+             created_at type string,
+             sql_statement type z2ui5_nsql_c_hst-sql_statement,
+             rows_no type z2ui5_nsql_c_hst-rows_no,
+             selected type abap_bool,
+             infostate type string,
+             highlight type string,
+           end of t_history_element,
+           t_history_collection type standard table of zcl_2ui5_native_sql_console_st=>t_history_element with empty key
+                                                                                                         with non-unique sorted key by_sel components selected
+                                                                                                         with unique hashed key by_key components id,
+           begin of t_history_pane,
+             layout_size type string,
+             last_item_successfully_added type z2ui5_nsql_c_hst-id,
+             items type zcl_2ui5_native_sql_console_st=>t_history_collection,
+           end of t_history_pane.
+
     types: begin of t_value_map,
              pc type string,
              ea type string,
@@ -36,41 +65,16 @@ class zcl_2ui5_native_sql_console_st definition
              value_map type zcl_2ui5_native_sql_console_st=>t_value_map,
            end of t_column_config,
            t_columns_config type standard table of zcl_2ui5_native_sql_console_st=>t_column_config with empty key,
-           begin of t_history_entry,
-             id type z2ui5_nsql_c_hst-id,
-             natural_id type z2ui5_nsql_c_hst-natural_id,
-             created_at type string,
-             sql_statement type z2ui5_nsql_c_hst-sql_statement,
-             rows_no type z2ui5_nsql_c_hst-rows_no,
-             selected type abap_bool,
-             infostate type string,
-             highlight type string,
-           end of t_history_entry,
-           t_history type standard table of zcl_2ui5_native_sql_console_st=>t_history_entry with empty key
-                                                                                            with non-unique sorted key by_sel components selected
-                                                                                            with unique hashed key by_key components id,
-           begin of t_result_view,
+           begin of t_results_pane,
              db_data type ref to data,
              filtered_db_data type ref to data,
              output_data type ref to data,
-             cont_size type string,
+             layout_size type string,
              title type string,
              column_config type zcl_2ui5_native_sql_console_st=>t_columns_config,
-             search_field type string,
+             wide_filter_string type string,
              filters type z2ui5_cl_util=>ty_t_filter_multi,
-             rtti_data type string,
-             rtti_data_back type string,
-           end of t_result_view,
-           begin of t_main_view,
-             sql_statement type string,
-             sql_max_rows type i,
-             sql_cont_size type string,
-             history_cont_size type string,
-             history_successfully_added type z2ui5_nsql_c_hst-id,
-             history_tab type zcl_2ui5_native_sql_console_st=>t_history,
-             app_width_limited type abap_bool,
-             columns_config type zcl_2ui5_native_sql_console_st=>t_columns_config,
-           end of t_main_view.
+           end of t_results_pane.
 
     class-methods instance
                     importing
@@ -80,11 +84,15 @@ class zcl_2ui5_native_sql_console_st definition
 
     data is_initialized type abap_bool.
 
-    data popup_clear_history_accepted type string.
+    data event_awaiting_response type string.
 
-    data main_view type zcl_2ui5_native_sql_console_st=>t_main_view.
+    data page type zcl_2ui5_native_sql_console_st=>t_page.
 
-    data result_view type zcl_2ui5_native_sql_console_st=>t_result_view.
+    data sql_editor_pane type zcl_2ui5_native_sql_console_st=>t_sql_editor_pane.
+
+    data history_pane type zcl_2ui5_native_sql_console_st=>t_history_pane.
+
+    data results_pane type zcl_2ui5_native_sql_console_st=>t_results_pane.
 
   protected section.
 
