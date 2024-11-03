@@ -10,6 +10,7 @@
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
    <TPOOL>
     <item>
@@ -35,6 +36,12 @@
      <KEY>004</KEY>
      <ENTRY>Project on GitHub</ENTRY>
      <LENGTH>27</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>005</KEY>
+     <ENTRY>More than one unique path expression is not allowed</ENTRY>
+     <LENGTH>98</LENGTH>
     </item>
     <item>
      <ID>I</ID>
@@ -95,6 +102,12 @@
      <KEY>015</KEY>
      <ENTRY>No entries selected.</ENTRY>
      <LENGTH>40</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>016</KEY>
+     <ENTRY>More than one associations in a single expression path are not allowed</ENTRY>
+     <LENGTH>132</LENGTH>
     </item>
    </TPOOL>
   </asx:values>
