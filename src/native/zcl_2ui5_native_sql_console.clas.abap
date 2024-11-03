@@ -78,7 +78,6 @@ class zcl_2ui5_native_sql_console implementation.
     endtry.
 
     "TODO: add tests
-    "TODO: add association mappings to join
     "TODO: clearly show nulls
     "TODO: fix ctrl + C (use another table?)
     "TODO: fix 'as json'/'as xml' queries (do not fit)
@@ -123,7 +122,7 @@ class zcl_2ui5_native_sql_console implementation.
 
       cast event( event-ref )->handle( me->a_ui5_client ).
 
-    catch cx_sy_itab_line_not_found.
+    catch cx_sy_ref_is_initial.
 
       data(class_name) = cl_abap_classdescr=>get_class_name( me->a_ui5_client->get_app( me->a_ui5_client->get( )-s_draft-id_prev_app ) ).
 
