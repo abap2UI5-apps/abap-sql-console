@@ -80,11 +80,15 @@ class history definition
     methods delete_for_user
               importing
                 i_entries type history=>t_delete_entries
-                i_user type xubname.
+                i_user type xubname
+              returning
+                value(r_val) type ref to history.
 
     methods delete_for_current_user
               importing
-                i_entries type history=>t_delete_entries.
+                i_entries type history=>t_delete_entries
+              returning
+                value(r_val) type ref to history.
 
 endclass.
 class main_view definition
@@ -97,7 +101,9 @@ class main_view definition
                 i_ui5_client type ref to z2ui5_if_client
                 i_state type ref to zcl_2ui5_native_sql_console_st.
 
-    methods set_for_display.
+    methods set_for_display
+              returning
+                value(r_val) type ref to main_view.
 
   protected section.
 
@@ -116,9 +122,13 @@ class data_result_view definition
                 i_ui5_client type ref to z2ui5_if_client
                 i_state type ref to zcl_2ui5_native_sql_console_st.
 
-    methods set_for_display.
+    methods set_for_display
+              returning
+                value(r_val) type ref to data_result_view.
 
-    methods redraw.
+    methods redraw
+              returning
+                value(r_val) type ref to data_result_view.
 
   protected section.
 
@@ -132,6 +142,8 @@ interface ui_interaction.
   methods handle
             importing
               i_ui5_client type ref to z2ui5_if_client
+            returning
+              value(r_val) type ref to ui_interaction
             raising
               cx_static_check.
 
@@ -258,6 +270,81 @@ class error_acknowledged_interaction definition
     data a_downcasted_ref type ref to z2ui5_cl_pop_error ##NEEDED. "as a safeguard that we are actually handling the intended popup
 
 endclass.
+class sql_statement definition
+                    create public ##CLASS_FINAL.
+
+  public section.
+
+    types t_processor type ref to cl_sql_statement.
+
+    types t_association_processor type ref to zif_association_processor.
+
+    types: begin of t_result,
+             updated_statement type string,
+             data type ref to data,
+             line_type type ref to cl_abap_structdescr,
+             table_type type ref to cl_abap_tabledescr,
+           end of t_result.
+
+    methods constructor
+              importing
+                i_processor type sql_statement=>t_processor
+                i_association_processor type sql_statement=>t_association_processor
+                i_sql_statement type string
+              raising
+                cx_sql_exception.
+
+    methods add_limit_if_none
+              importing
+                i_fallback_limit type i optional
+              returning
+                value(r_val) type ref to sql_statement.
+
+    methods execute
+              returning
+                value(r_val) type sql_statement=>t_result
+              raising
+                cx_sql_exception.
+
+    "! <p class="shorttext synchronized" lang="EN">Returns the unique path expression, when found</p>
+    "! @parameter r_val | The association or empty
+    "! @raising cx_sql_exception | Different associations or a complex path expression found
+    methods sole_associaton_if_any
+              returning
+                value(r_val) type string
+              raising
+                cx_sql_exception.
+
+    methods data_sources
+              returning
+                value(r_val) type string_table.
+
+    methods generated_join_for_association
+              importing
+                i_association type string
+              returning
+                value(r_val) type string
+              raising
+                cx_sql_exception.
+
+    "! <p class="shorttext synchronized" lang="EN">Returns the statement mapping for the possible associations</p>
+    "! @parameter r_val | New statement (if associations are present) or empty (it no associations are found)
+    methods assoc_mapped_to_join_if_any
+              importing
+                i_association type string
+                i_join type string
+              returning
+                value(r_val) type string.
+
+  protected section.
+
+    data a_sql_statement type string.
+
+    data a_processor type sql_statement=>t_processor.
+
+    data an_association_processor type sql_statement=>t_association_processor.
+
+endclass.
 
 ******************************************************************************************************************************************************************************************************************
 
@@ -366,8 +453,8 @@ class history implementation.
   endmethod.
   method delete_for_current_user.
 
-    me->delete_for_user( i_entries = i_entries
-                         i_user = cl_abap_syst=>get_user_name( ) ).
+    r_val = me->delete_for_user( i_entries = i_entries
+                                 i_user = cl_abap_syst=>get_user_name( ) ).
 
   endmethod.
   method delete_for_user.
@@ -406,6 +493,8 @@ class history implementation.
       t->end( ).
 
     endif.
+
+    r_val = me.
 
   endmethod.
 
@@ -503,6 +592,8 @@ class main_view implementation.
 
     me->a_ui5_client->view_display( me->a_parser->stringify( ) ).
 
+    r_val = me.
+
   endmethod.
 
 endclass.
@@ -586,12 +677,16 @@ class data_result_view implementation.
                                          id = `preview` ##NO_TEXT
                                          method_insert = `addItem` ).
 
+    r_val = me.
+
   endmethod.
   method redraw.
 
     me->set_for_display( ).
 
     me->a_ui5_client->view_model_update( ).
+
+    r_val = me.
 
   endmethod.
 
@@ -615,45 +710,34 @@ class on_run implementation.
 
   method event~handle.
 
-    field-symbols <table> type standard table.
+"warn: only one assoc target allowed because it is otherwise difficult to distinguish between two identically named associations from different entities
 
-    constants ends_with_limit_clause type string value `(?i)\blimit\s+\d+\s*;?\s*\Z`.
+"TODO: copy original statement to avoid modifying state
+"TODO: consider delimited names
+"TODO: consider CTEs
+"TODO: handle from db_assoc?
+"TODO: handle cardinality, join type, conditions? | in any case, throw error when using parameters
+"TODO: create pseudo-functions? To return all views of system, all tables of system, all fields of table, all fields (and assocs) of view, on conditions of assocs
+
+    field-symbols <table> type standard table.
 
     data(state) = zcl_2ui5_native_sql_console_st=>instance( ).
 
-    state->sql_editor_pane-statement = cond #( when find( val = condense( state->sql_editor_pane-statement )
-                                                          sub = `select top` ##NO_TEXT
-                                                          case = abap_false ) eq -1
-                                                    and find( val = condense( state->sql_editor_pane-statement )
-                                                              pcre = ends_with_limit_clause ) eq -1
-                                               then |{ replace( val = state->sql_editor_pane-statement
-                                                                sub = `;`
-                                                                with = `` ) }{ cl_abap_char_utilities=>cr_lf }  limit { state->sql_editor_pane-fallback_max_rows };|
-                                               else state->sql_editor_pane-statement ).
+    data(statement) = new sql_statement( i_processor = new cl_sql_statement( )
+                                         i_association_processor = new zcl_association_processor( )
+                                         i_sql_statement = state->sql_editor_pane-statement )->add_limit_if_none( state->sql_editor_pane-fallback_max_rows ).
 
-    data(statement) = new cl_sql_statement( ).
+    data(result) = statement->execute( ).
 
-    data(result) = statement->execute_query( state->sql_editor_pane-statement ).
+    state->sql_editor_pane-statement = result-updated_statement.
 
-    data(result_metadata) = result->get_metadata( ).
-
-    data(empty_line) = result->get_struct_ref( result_metadata ).
-
-    data(line_type) = cast cl_abap_structdescr( cl_abap_typedescr=>describe_by_data_ref( empty_line ) ).
-
-    data(table_type) = cl_abap_tabledescr=>get( line_type ).
-
-    create data state->results_pane-db_data type handle table_type.
+    state->results_pane-db_data = result-data.
 
     assign state->results_pane-db_data->* to <table>.
 
-    result->set_param_table( state->results_pane-db_data ).
-
-    result->next_package( ).
-
     state->results_pane = value #( base state->results_pane
                                    output_data = state->results_pane-db_data
-                                   column_config = value #( for <e> in line_type->components
+                                   column_config = value #( for <e> in result-line_type->components
                                                             ( label = <e>-name
                                                               property = <e>-name
                                                               type = `String` ) ) ##NO_TEXT
@@ -873,6 +957,238 @@ class on_wide_filtering implementation.
   method ui_interaction~id.
 
     r_val = `RESULTS_WIDE_FILTER`.
+
+  endmethod.
+
+endclass.
+class sql_statement implementation.
+
+  method constructor.
+
+    me->a_sql_statement = i_sql_statement.
+
+    me->a_processor = i_processor.
+
+    me->an_association_processor = i_association_processor.
+
+  endmethod.
+  method add_limit_if_none.
+
+    constants ends_with_limit_clause type string value `(?i)\blimit\s+\d+\s*;?\s*\Z`.
+
+    data(condensed) = condense( replace( val = me->a_sql_statement
+                                         sub = cl_abap_char_utilities=>cr_lf
+                                         with = ` `
+                                         occ = 0 ) ).
+
+    me->a_sql_statement = cond #( when find( val = condensed
+                                             sub = `select top` ##NO_TEXT
+                                             case = abap_false ) eq -1
+                                       and find( val = condensed
+                                                 pcre = ends_with_limit_clause ) eq -1
+                                  then |{ replace( val = me->a_sql_statement
+                                                   sub = `;`
+                                                   with = `` ) }{ cl_abap_char_utilities=>cr_lf }  limit { i_fallback_limit };|
+                                  else me->a_sql_statement ).
+
+    r_val = me.
+
+  endmethod.
+  method execute.
+
+    field-symbols <table> type standard table.
+
+    data data type ref to data.
+
+    data(statement_to_run) = cond #( let association = me->sole_associaton_if_any( )
+                                         assoc_join = me->generated_join_for_association( association )
+                                         mapping = me->assoc_mapped_to_join_if_any( i_association = association
+                                                                                    i_join = assoc_join ) in
+                                     when mapping is initial
+                                     then me->a_sql_statement
+                                     else mapping ).
+
+    data(result) = me->a_processor->execute_query( statement_to_run ).
+
+    data(result_metadata) = result->get_metadata( ).
+
+    data(empty_line) = result->get_struct_ref( result_metadata ).
+
+    data(line_type) = cast cl_abap_structdescr( cl_abap_typedescr=>describe_by_data_ref( empty_line ) ).
+
+    data(table_type) = cl_abap_tabledescr=>get( line_type ).
+
+    create data data type handle table_type.
+
+    assign data->* to <table>.
+
+    result->set_param_table( data ).
+
+    result->next_package( ).
+
+    r_val = value #( data = data
+                     line_type = line_type
+                     table_type = table_type
+                     updated_statement = me->a_sql_statement ).
+
+  endmethod.
+  method sole_associaton_if_any.
+
+    constants: at_least_two_path_expressions type string value `"?_[a-zA-Z\d]+"?(?:\[.*\])?\."?_[a-zA-Z\d]+"?`,
+               path_expression_field type string value `("?_[\w]+"?)(?:\[.*?\])?\."?[a-zA-Z\d]+"?` ##NO_TEXT.
+
+    if find( val = me->a_sql_statement
+             pcre = at_least_two_path_expressions ) gt 0.
+
+      raise exception new cx_sql_exception( sql_message = 'More than one associations in a single expression path are not allowed'(016) ).
+
+    else.
+
+      data(no_of_path_expression_fields) = count( val = me->a_sql_statement
+                                                  pcre = path_expression_field ).
+
+      do no_of_path_expression_fields times.
+
+        if sy-index eq 1.
+
+          data(first_association) = segment( val = match( val = me->a_sql_statement
+                                                          pcre = path_expression_field
+                                                          occ = sy-index )
+                                             sep = `.`
+                                             index = 1 ).
+
+        else.
+
+          data(following_association) = segment( val = match( val = me->a_sql_statement
+                                                              pcre = path_expression_field
+                                                              occ = sy-index )
+                                                 sep = `.`
+                                                 index = 1 ).
+
+          if replace( val = following_association
+                      sub = `"`
+                      with = ``
+                      occ = 0 ) ne replace( val = first_association
+                                            sub = `"`
+                                            with = ``
+                                            occ = 0 ).
+
+            data(more_than_one_associations) = abap_true.
+
+            exit.
+
+          endif.
+
+        endif.
+
+      enddo.
+
+      r_val = cond #( when more_than_one_associations eq abap_true
+                      then throw cx_sql_exception( sql_message = 'More than one unique path expression is not allowed'(005) )
+                      else first_association ).
+
+    endif.
+
+  endmethod.
+  method data_sources.
+
+    constants data_source type string value `(?i)\b(?:from|join)\b\W"?\w+"?(?:."?\w+"?)` ##NO_TEXT.
+
+    data(condensed) = condense( replace( val = me->a_sql_statement
+                                         sub = cl_abap_char_utilities=>cr_lf
+                                         with = ` `
+                                         occ = 0 ) ).
+
+    data(no_of_ds) = count( val = condensed
+                            pcre = data_source ).
+
+    data(no_of_ds_iter) = cond #( when no_of_ds lt 1
+                                  then value string_table( )
+                                  else reduce #( init aggr = value string_table( )
+                                                 for i = 0 until i eq no_of_ds
+                                                 next aggr = value #( base aggr
+                                                                      ( ) ) ) ).
+
+    r_val = value #( "for i = 0 until i eq no_of_ds jesus christ SAP what even is this expression for the love of all that is sacred
+                     for <i> in no_of_ds_iter index into i
+                     let ds_match = match( val = condensed
+                                           pcre = data_source
+                                           occ = i )
+                         after_from_or_join = segment( val = ds_match
+                                                       sep = ` `
+                                                       index = 2 )
+                         is_qualified_by_schema = xsdbool( find( val = after_from_or_join
+                                                                 sub = `.` ) gt 0 ) in
+                     ( replace( val = cond #( when is_qualified_by_schema eq abap_true
+                                              then segment( val = after_from_or_join
+                                                            sep = `.`
+                                                            index = 2 )
+                                              else after_from_or_join )
+                                sub = `"`
+                                with = ``
+                                occ = 0 ) ) ).
+
+  endmethod.
+  method generated_join_for_association.
+
+    r_val = me->an_association_processor->map_association_to_join( i_potential_data_sources = conv #( me->data_sources( ) )
+                                                                   i_association = i_association ).
+
+  endmethod.
+  method assoc_mapped_to_join_if_any.
+  "TODO: to add the join, first I have to detect whether it is part of a CTE or the main query (or both)
+        "I should also detect to which of the queries the join corresponds when set operators are used
+  "TODO: add association attributes (inner, cardinality, extra conditions) to join mapping
+
+    data(clauses) = value string_table( ( ` WHERE` )
+                                        ( ` GROUP BY` )
+                                        ( ` HAVING` )
+                                        ( ` ORDER BY` )
+                                        ( ` LIMIT` )
+                                        ( ` WITH HINT(` )
+                                        ( ` ;` ) ).
+
+    if i_join is not initial.
+
+      data(new_statement) = condense( replace( val = me->a_sql_statement
+                                               sub = cl_abap_char_utilities=>cr_lf
+                                               with = ` `
+                                               occ = 0 ) ).
+
+      loop at clauses reference into data(clause).
+
+        data(with_clause) = substring_before( val = new_statement
+                                              sub = clause->*
+                                              case = abap_false ).
+
+        if with_clause is not initial.
+
+          new_statement = with_clause && ` ` && i_join && substring_from( val = new_statement
+                                                                          sub = clause->*
+                                                                          case = abap_false ).
+
+          data(replaced) = abap_true.
+
+          exit.
+
+        endif.
+
+      endloop.
+
+      if not ( replaced eq abap_true ).
+
+        new_statement &&= ` ` && i_join.
+
+      endif.
+
+      new_statement = replace( val = new_statement
+                               sub = i_association
+                               with = `"=A0"`
+                               occ = 0 ).
+
+      r_val = new_statement.
+
+    endif.
 
   endmethod.
 
