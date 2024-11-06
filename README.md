@@ -13,7 +13,7 @@ SQL Console in Your Browser – No Need for Eclipse or SAP GUI Installation
 * R/3 NetWeaver AS ABAP 7.50 or higher (Standard ABAP)
 
 #### Required Projects:
-* S-RTTI
+* [S-RTTI](https://github.com/sandraros/S-RTTI)
 * abap2UI5
 * [js-libraries](https://github.com/abap2UI5-addons/js-libraries)
 
