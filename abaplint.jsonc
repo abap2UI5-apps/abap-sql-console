@@ -10,7 +10,12 @@
   },
     {
       "url": "https://github.com/abap2UI5-addons/custom-controls",
-      "folder": "/abap2UI5",
+      "folder": "/abap2UI5-controls",
+      "files": "/src/**/*.*"
+    },
+    {
+      "url": "https://github.com/sandraros/S-RTTI",
+      "folder": "/srtti",
       "files": "/src/**/*.*"
     },
     {
